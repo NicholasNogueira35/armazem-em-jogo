@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Armazém em Jogo: Fase 1, Recebimento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#121827; --panel:#1d2740; --panel2:#26324f; --ink:#e9eef7; --muted:#9fb0cc;
+    --yellow:#ffcc33; --red:#e5484d; --green:#3ecf8e; --blue:#4d9bff; --purple:#b77cff; --orange:#ff7a1a;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:'VT323',monospace;font-size:20px;line-height:1.15}
+  .px{font-family:'Press Start 2P',monospace}
+  #app{max-width:1180px;margin:0 auto;padding:10px 10px 16px;display:flex;flex-direction:column;align-items:center;gap:8px}
+  #hud{width:100%;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:stretch}
+  .box{background:var(--panel);border:3px solid #0b0f1a;box-shadow:inset 0 0 0 2px #33426a;padding:8px 10px}
+  #steps{display:flex;gap:6px;flex-wrap:wrap}
+  .step{font-family:'Press Start 2P',monospace;font-size:9px;padding:6px 7px;background:#0f1525;color:#6f7f9e;border:2px solid #2a3654;line-height:1.5}
+  .step b{display:block;color:inherit;font-weight:normal}
+  .step.on{background:var(--yellow);color:#1a1300;border-color:#fff2b8}
+  .step.done{color:var(--green);border-color:#1f5a43}
+  #objective{margin-top:6px;font-size:21px}
+  #objective .role{color:var(--yellow)}
+  #stats{display:flex;flex-direction:column;gap:4px;min-width:200px;font-size:20px}
+  #stats .row{display:flex;justify-content:space-between;gap:12px}
+  #stats .lbl{color:var(--muted)}
+  #tReal.over{color:var(--red)}
+  #stage{position:relative;width:min(100%, calc((100vh - 220px) * 22 / 13));min-width:300px;aspect-ratio:22/13;border:4px solid #0b0f1a;box-shadow:0 0 0 3px #33426a, 0 10px 30px rgba(0,0,0,.5)}
+  #cv{width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+  .lab{position:absolute;transform:translate(-50%,-50%);font-family:'Press Start 2P',monospace;font-size:clamp(5px,0.75vw,9px);color:#fff;text-shadow:1px 1px 0 #000,-1px 1px 0 #000,1px -1px 0 #000,-1px -1px 0 #000;pointer-events:none;text-align:center;white-space:nowrap;line-height:1.5}
+  .lab small{display:block;font-size:.8em;opacity:.9}
+  #toast{position:absolute;left:50%;bottom:3%;transform:translateX(-50%);max-width:90%;background:rgba(10,14,24,.92);border:2px solid var(--yellow);padding:6px 12px;font-size:clamp(15px,1.8vw,21px);opacity:0;transition:opacity .25s;pointer-events:none;text-align:center}
+  #toast.show{opacity:1}
+  #sup{position:absolute;left:50%;bottom:17%;transform:translateX(-50%);max-width:88%;background:#fff;color:#1b1b1b;border:3px solid var(--red);padding:6px 12px;font-size:clamp(15px,1.8vw,22px);opacity:0;transition:opacity .25s;pointer-events:none}
+  #sup.show{opacity:1}
+  #sup b{color:var(--red);font-family:'Press Start 2P',monospace;font-size:.5em;display:block;margin-bottom:4px}
+  #pad{display:none;gap:18px;align-items:center;justify-content:center;width:100%;user-select:none;-webkit-user-select:none;touch-action:none}
+  @media (pointer:coarse){#pad{display:flex}}
+  .dpad{display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:repeat(3,54px);gap:4px}
+  .pb{background:var(--panel2);border:3px solid #0b0f1a;box-shadow:inset 0 0 0 2px #3d4d78;color:var(--ink);font-family:'Press Start 2P',monospace;font-size:14px;display:flex;align-items:center;justify-content:center;touch-action:none}
+  .pb:active{background:var(--yellow);color:#000}
+  .act{width:84px;height:84px;border-radius:50%;font-size:12px}
+  #help{font-size:17px;color:var(--muted);text-align:center}
+  /* modal */
+  #modal{position:fixed;inset:0;background:rgba(5,8,15,.78);display:none;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 10px;z-index:10}
+  #modal.show{display:flex}
+  .panel{background:var(--panel);border:4px solid #0b0f1a;box-shadow:inset 0 0 0 3px #3d4d78, 0 20px 50px rgba(0,0,0,.6);width:min(880px,100%);padding:18px 20px 20px}
+  .panel h2{font-family:'Press Start 2P',monospace;font-size:15px;margin:0 0 6px;color:var(--yellow);line-height:1.5}
+  .panel h3{font-family:'Press Start 2P',monospace;font-size:10px;margin:14px 0 6px;color:var(--blue);line-height:1.5}
+  .panel p{margin:6px 0}
+  .tag{display:inline-block;font-family:'Press Start 2P',monospace;font-size:9px;padding:4px 6px;background:#0f1525;border:2px solid #33426a;margin-bottom:8px}
+  .docs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+  @media (max-width:720px){.docs{grid-template-columns:1fr}}
+  .doc{background:#f4efe1;color:#26221a;padding:10px 12px;border:3px solid #0b0f1a;font-size:19px}
+  .doc h4{font-family:'Press Start 2P',monospace;font-size:9px;margin:0 0 8px;line-height:1.5;color:#5a3d12}
+  .doc .k{color:#7b6a4c}
+  .doc ul{margin:4px 0 0;padding-left:18px}
+  .doc .bad{color:#b3261e;font-weight:bold}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  button.b{font-family:'Press Start 2P',monospace;font-size:10px;line-height:1.5;padding:12px 14px;border:3px solid #0b0f1a;background:var(--panel2);color:var(--ink);box-shadow:inset 0 0 0 2px #4b5d8c;cursor:pointer}
+  button.b:hover{filter:brightness(1.15)}
+  button.b.go{background:#1f7a55;box-shadow:inset 0 0 0 2px #3ecf8e}
+  button.b.no{background:#8c2327;box-shadow:inset 0 0 0 2px #e5484d}
+  button.b.y{background:var(--yellow);color:#1a1300;box-shadow:inset 0 0 0 2px #fff2b8}
+  button.b:disabled{opacity:.4;cursor:not-allowed}
+  .supline{background:#fff;color:#1b1b1b;border:3px solid var(--red);padding:8px 12px;margin-top:12px;font-size:20px}
+  .supline b{color:var(--red)}
+  .confwrap{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start;margin-top:8px}
+  @media (max-width:720px){.confwrap{grid-template-columns:1fr}}
+  #pv{width:396px;max-width:100%;image-rendering:pixelated;border:3px solid #0b0f1a;background:#3b2c1e}
+  .counter{display:flex;align-items:center;gap:8px;margin:8px 0}
+  .counter input{width:90px;font-family:'Press Start 2P',monospace;font-size:16px;text-align:center;padding:8px;background:#0f1525;color:var(--ink);border:3px solid #33426a}
+  .seg{display:flex;gap:8px;flex-wrap:wrap}
+  .seg button.sel{background:var(--yellow);color:#1a1300}
+  table.w{width:100%;border-collapse:collapse;margin-top:8px;font-size:19px}
+  table.w th,table.w td{border:2px solid #33426a;padding:5px 8px;text-align:left}
+  table.w th{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted);line-height:1.5}
+  .st-ok{color:var(--green)} .st-bad{color:var(--red)} .st-warn{color:var(--yellow)}
+  .issue{background:#0f1525;border:2px solid #33426a;padding:8px 10px;margin-top:10px}
+  .issue label{display:flex;gap:8px;align-items:flex-start;margin:5px 0;cursor:pointer}
+  .issue input{margin-top:5px}
+  .log{list-style:none;padding:0;margin:8px 0}
+  .log li{padding:6px 8px;border-left:5px solid var(--green);background:#0f1525;margin:6px 0}
+  .log li.f{border-left-color:var(--red)}
+  .log .r{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted);display:block;margin-bottom:3px;line-height:1.5}
+  .leader{background:#14324a;border:3px solid #4d9bff;padding:10px 12px;margin-top:12px}
+  .leader b{color:var(--blue)}
+  .roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin-top:8px}
+  .rc{background:#0f1525;border:2px solid #33426a;padding:8px 10px;font-size:19px}
+  .rc b{font-family:'Press Start 2P',monospace;font-size:9px;display:block;margin-bottom:4px;line-height:1.5}
+  .bars .bar{display:grid;grid-template-columns:230px 1fr 60px;gap:10px;align-items:center;margin:6px 0}
+  @media (max-width:620px){.bars .bar{grid-template-columns:1fr 60px}.bars .bar .track{grid-column:1/3;grid-row:2}}
+  .track{height:16px;background:#0f1525;border:2px solid #33426a}
+  .fill{height:100%;background:var(--green)}
+  .code{font-family:'Press Start 2P',monospace;font-size:clamp(11px,2vw,16px);background:#0f1525;border:3px dashed var(--yellow);padding:14px;text-align:center;letter-spacing:1px;margin-top:8px;word-break:break-all;user-select:all}
+  .big{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .big>div{flex:1;min-width:150px;background:#0f1525;border:2px solid #33426a;padding:10px}
+  .big .n{font-family:'Press Start 2P',monospace;font-size:18px;color:var(--yellow);margin-top:6px}
+.fld{width:100%;font-family:'VT323',monospace;font-size:22px;padding:8px 10px;background:#0f1525;color:var(--ink);border:3px solid #33426a}
+  .fld:focus{outline:none;border-color:var(--yellow)}
+  .tcle{background:#0f1525;border:2px solid #33426a;padding:10px 12px;margin-top:14px;font-size:19px}
+  .chk{display:flex;gap:10px;align-items:center;margin-top:12px;cursor:pointer}
+  .chk input{width:20px;height:20px}
+  kbd{font-family:'Press Start 2P',monospace;font-size:9px;background:#0f1525;border:2px solid #4b5d8c;padding:2px 5px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div class="box">
+      <div id="steps"></div>
+      <div id="objective">Prepare-se para o turno.</div>
+    </div>
+    <div class="box" id="stats">
+      <div class="row"><span class="lbl">Jogador</span><span id="sPlayer">-</span></div>
+      <div class="row"><span class="lbl">Caminhão</span><span id="sTruck">0/3</span></div>
+      <div class="row"><span class="lbl">Meta do supervisor</span><span id="tMeta">01:00</span></div>
+      <div class="row"><span class="lbl">Tempo real</span><span id="tReal">00:00</span></div>
+      <div class="row"><span class="lbl">Acertos</span><span id="sScore">0</span></div>
+    </div>
+  </div>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="labels"></div>
+    <div id="sup"><b>SUPERVISOR</b><span id="supTxt"></span></div>
+    <div id="toast"></div>
+  </div>
+  <div id="pad">
+    <div class="dpad">
+      <span></span><div class="pb" data-d="up">▲</div><span></span>
+      <div class="pb" data-d="left">◀</div><span></span><div class="pb" data-d="right">▶</div>
+      <span></span><div class="pb" data-d="down">▼</div><span></span>
+    </div>
+    <div class="pb act" id="actBtn">AÇÃO</div>
+  </div>
+  <div id="help">Mover: <kbd>setas</kbd> ou <kbd>WASD</kbd> &nbsp; Interagir: <kbd>E</kbd> ou <kbd>Espaço</kbd> &nbsp; Siga a seta amarela.</div>
+</div>
+<div id="modal"><div class="panel" id="panel"></div></div>
+
+<script src="config.js"></script>
+<script>
+(()=>{
+'use strict';
+const TILE=16, COLS=22, ROWS=13, W=COLS*TILE, H=ROWS*TILE;
+const cv=document.getElementById('cv'); cv.width=W; cv.height=H;
+const g=cv.getContext('2d'); g.imageSmoothingEnabled=false;
+const $=id=>document.getElementById(id);
+const CFG=Object.assign({apiUrl:''},window.ARMAZEM_CONFIG||{});
+const API=(CFG.apiUrl||'').trim();
+const newSid=()=>Array.from({length:6},()=>'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random()*32)]).join('');
+const store={get(k){try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}};
+function apiPost(d){
+  if(!API)return Promise.resolve(false);
+  return fetch(API,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(d)})
+    .then(()=>true).catch(()=>false);
+}
+function apiRoom(sala){
+  if(!API)return Promise.resolve(null);
+  return fetch(API+'?acao=sala&sala='+encodeURIComponent(sala)).then(r=>r.json()).catch(()=>null);
+}
+// reenvia resultados que ficaram pendentes (sem internet na hora)
+(function retryPending(){const pend=store.get('armazem_pendentes')||[];if(!pend.length||!API)return;
+  Promise.all(pend.map(apiPost)).then(ok=>{store.set('armazem_pendentes',pend.filter((_,i)=>!ok[i]));});})();
+
+/* ---------- MAPA ---------- */
+const map=[];
+for(let r=0;r<ROWS;r++){map.push([]);for(let c=0;c<COLS;c++)map[r].push(c<4?'P':'.');}
+for(let c=4;c<COLS;c++){map[0][c]='#';map[ROWS-1][c]='#';}
+for(let r=0;r<ROWS;r++){map[r][COLS-1]='#';map[r][4]=(r>=5&&r<=7)?'L':'#';}
+for(let r=3;r<=9;r++)for(let c=5;c<=9;c++)map[r][c]='D';
+for(let r=10;r<=11;r++)for(let c=5;c<=7;c++)map[r][c]='Q';
+for(let c=11;c<=17;c++)map[4][c]='#';
+for(let r=0;r<=4;r++){map[r][11]='#';map[r][17]='#';}
+for(let r=1;r<=3;r++)for(let c=12;c<=16;c++)map[r][c]='O';
+map[4][14]='O';
+map[1][13]='d'; map[1][15]='c';
+const RACK={A:12,B:15,C:18};
+for(let r=7;r<=10;r++){for(const z in RACK){map[r][RACK[z]]=z;map[r][RACK[z]+1]=z;}}
+const SOLID='#LPdcABC';
+const tileAt=(x,y)=>(x<0||y<0||x>=COLS||y>=ROWS)?'#':map[y][x];
+const solid=(x,y)=>SOLID.includes(tileAt(x,y));
+
+const ZONES={A:{name:'Zona A (Alimentos)',color:'#3ecf8e',why:'alimentos ficam separados de produtos químicos'},
+             B:{name:'Zona B (Eletrônicos)',color:'#4d9bff',why:'eletrônicos são frágeis e de alto valor, ficam em área própria'},
+             C:{name:'Zona C (Químicos e limpeza)',color:'#b77cff',why:'químicos ficam segregados para não contaminar alimentos'},
+             Q:{name:'Quarentena',color:'#e5484d',why:'palete com avaria registrada aguarda a decisão do fornecedor na quarentena'}};
+const zoneFill={A:3,B:2,C:3}; const quarantine=[];
+
+/* rótulos sobre o canvas */
+const LABELS=[[2,1.2,'PÁTIO'],[7,2.55,'DOCA'],[6,12.5,'QUARENTENA<small>avarias</small>'],[14,3.4,'ESCRITÓRIO'],
+  [13,1.15+1.25,'<small>NF</small>'],[15,2.4,'<small>WMS</small>'],
+  [13,6.2,'ZONA A<small>Alimentos</small>'],[16,6.2,'ZONA B<small>Eletrônicos</small>'],[19,6.2,'ZONA C<small>Químicos</small>']];
+$('labels').innerHTML=LABELS.map(([c,r,t])=>`<div class="lab" style="left:${c/COLS*100}%;top:${r/ROWS*100}%">${t}</div>`).join('');
+
+/* ---------- DADOS DOS CAMINHÕES ---------- */
+const TRUCKS=[
+ {plate:'RQX-4F21',carrier:'TransVix Cargas',color:'#2f6fd6',valid:true,
+  sched:{ok:true,window:'08:00 às 08:30',carrier:'TransVix Cargas',plate:'RQX-4F21'},
+  po:{num:'4501',supplier:'Distribuidora Vila Atacado',cnpj:'12.345.678/0001-90',items:[['Arroz 5 kg',20],['Detergente 500 ml',16],['Fone de ouvido',12]]},
+  nf:{num:'88213',issuer:'Distribuidora Vila Atacado',cnpj:'12.345.678/0001-90',poRef:'4501',items:[['Arroz 5 kg',20],['Detergente 500 ml',16],['Fone de ouvido',12]]},
+  pallets:[{item:'Arroz 5 kg',cat:'A',nf:20,real:20,dmg:0},{item:'Detergente 500 ml',cat:'C',nf:16,real:16,dmg:2},{item:'Fone de ouvido',cat:'B',nf:12,real:12,dmg:0}]},
+ {plate:'SBT-9J07',carrier:'Expresso Rápido',color:'#d6452f',valid:false,
+  sched:{ok:false,plate:'SBT-9J07'},
+  po:{num:'4610',supplier:'Eletro Sul Componentes',cnpj:'45.987.321/0001-10',items:[['Cabo HDMI',30],['Mouse óptico',20]]},
+  nf:{num:'10457',issuer:'Eletro Sul Comércio Ltda',cnpj:'77.111.222/0001-33',poRef:'4610',items:[['Cabo HDMI',30],['Mouse óptico',20],['Teclado',40]]},
+  supLine:'Libera logo esse aí! O motorista tá buzinando e eu não quero caminhão parado no pátio!',
+  pallets:[]},
+ {plate:'PPK-2C88',carrier:'Rota Capixaba Log',color:'#2fa36b',valid:true,
+  sched:{ok:true,window:'09:30 às 10:00',carrier:'Rota Capixaba Log',plate:'PPK-2C88'},
+  po:{num:'4588',supplier:'Mega Distribuidora Capixaba',cnpj:'33.444.555/0001-66',items:[['Água sanitária 1 L',20],['Biscoito recheado',24],['Carregador USB',15]]},
+  nf:{num:'55102',issuer:'Mega Distribuidora Capixaba',cnpj:'33.444.555/0001-66',poRef:'4588',items:[['Água sanitária 1 L',20],['Biscoito recheado',24],['Carregador USB',15]]},
+  pallets:[{item:'Água sanitária 1 L',cat:'C',nf:20,real:18,dmg:0},{item:'Biscoito recheado',cat:'A',nf:24,real:24,dmg:3},{item:'Carregador USB',cat:'B',nf:15,real:15,dmg:0}]}
+];
+const META=60; // segundos por caminhão (meta impossível do supervisor)
+const PALLET_SPOTS=[[6,4],[8,4],[6,6],[8,6],[6,8],[8,8]];
+const ROLE={assistente:'Assistente de recebimento',conferente:'Conferente',analista:'Analista de estoque (WMS)',operador:'Operador de armazenagem'};
+const STEPS=[['docs','1. Documentos','Assistente'],['conf','2. Conferência','Conferente'],['wms','3. Lançar no WMS','Analista'],['arm','4. Armazenagem','Operador']];
+
+/* ---------- ESTADO ---------- */
+const P={x:9,y:6,px:9*TILE,py:6*TILE,dir:'down',moving:false,fx:0,fy:0,t:0,walk:0};
+const SUP={x:19,y:5,px:19*TILE,py:5*TILE,dir:'down',moving:false,fx:0,fy:0,t:0,cd:0};
+const S={phase:'intro',ti:-1,step:null,truckState:'gone',truckX:-90,pallets:[],carrying:null,unload:[],unloadT:0,
+  elapsed:0,total:0,log:[],shortcuts:0,offered:false,half:false,lastOver:-99,modal:false,running:false,score:0};
+
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function rnd(x,y,s=0){let n=(x*374761393+y*668265263+s*1442695041)|0;n=Math.imul(n^(n>>>13),1274126177);return((n^(n>>>16))>>>0)/4294967296;}
+
+/* ---------- UI ---------- */
+let toastT=null,supT=null;
+function toast(msg,ms=3200){const t=$('toast');t.innerHTML=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),ms);}
+function supSay(msg,ms=3800){$('supTxt').textContent=msg;$('sup').classList.add('show');clearTimeout(supT);supT=setTimeout(()=>$('sup').classList.remove('show'),ms);SUP.talk=ms/1000;}
+function esc(t){return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function fmt(s){s=Math.floor(s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function openModal(html){$('panel').innerHTML=html;$('modal').classList.add('show');$('modal').scrollTop=0;S.modal=true;keys.clear();}
+function closeModal(){$('modal').classList.remove('show');S.modal=false;}
+
+const OBJ={
+  docs:'<span class="role">Você é o ASSISTENTE DE RECEBIMENTO.</span> Vá até a mesa da NF no escritório e confira agendamento, pedido de compra e nota fiscal antes de liberar a descarga.',
+  conf:'<span class="role">Você é o CONFERENTE.</span> Vá até cada palete na doca e faça a conferência cega: conte as caixas e procure avarias.',
+  wms:'<span class="role">Você é o ANALISTA DE ESTOQUE.</span> Vá ao computador do WMS e lance a entrada, tratando as divergências encontradas.',
+  arm:'<span class="role">Você é o OPERADOR DE ARMAZENAGEM.</span> Pegue cada palete e leve ao endereço certo: zona da categoria ou quarentena, se houver avaria registrada.',
+  wait:'Aguarde o próximo caminhão encostar na doca.'
+};
+function renderHUD(){
+  const idx=STEPS.findIndex(s=>s[0]===S.step);
+  $('steps').innerHTML=STEPS.map((s,i)=>`<div class="step ${i===idx?'on':(idx>i?'done':'')}">${s[1]}<b>${s[2]}</b></div>`).join('');
+  $('objective').innerHTML=S.phase==='play'?(OBJ[S.step]||OBJ.wait):(S.phase==='end'?'Turno encerrado.':'Prepare-se para o turno.');
+  $('sTruck').textContent=Math.max(0,S.ti+1)+'/3';
+  $('sScore').textContent=S.score;
+}
+
+/* ---------- FLUXO ---------- */
+function log(role,ok,text){S.log.push({truck:S.ti,role,ok,text});if(ok)S.score++;renderHUD();}
+function nextTruck(){
+  S.ti++;S.pallets=[];S.carrying=null;S.offered=false;S.half=false;S.lastOver=-99;S.elapsed=0;S.step=null;
+  S.truckState='arriving';S.truckX=-90;S.running=true;S.phase='play';renderHUD();
+  toast(`Caminhão ${S.ti+1} entrando no pátio: ${TRUCKS[S.ti].carrier}, placa ${TRUCKS[S.ti].plate}.`);
+}
+function setStep(s){S.step=s;renderHUD();}
+function truck(){return TRUCKS[S.ti];}
+
+function openDocs(){
+  const t=truck();
+  const sch=t.sched.ok?`<p><span class="k">Placa:</span> ${t.sched.plate}</p><p><span class="k">Transportadora:</span> ${t.sched.carrier}</p><p><span class="k">Janela:</span> ${t.sched.window}</p><p><span class="k">Status:</span> Confirmado</p>`
+    :`<p><span class="k">Placa consultada:</span> ${t.sched.plate}</p><p class="bad">Nenhum agendamento encontrado para esta placa hoje.</p>`;
+  const items=it=>'<ul>'+it.map(([n,q])=>`<li>${n}: ${q} cx</li>`).join('')+'</ul>';
+  openModal(`<span class="tag">ASSISTENTE DE RECEBIMENTO</span><h2>Conferência documental</h2>
+   <p>Antes de abrir a porta do caminhão, compare os três documentos. Tudo precisa bater: agendamento, fornecedor, CNPJ, número do pedido e itens.</p>
+   <div class="docs">
+    <div class="doc"><h4>AGENDAMENTO</h4>${sch}</div>
+    <div class="doc"><h4>PEDIDO DE COMPRA ${t.po.num}</h4><p><span class="k">Fornecedor:</span> ${t.po.supplier}</p><p><span class="k">CNPJ:</span> ${t.po.cnpj}</p>${items(t.po.items)}</div>
+    <div class="doc"><h4>NF-e ${t.nf.num}</h4><p><span class="k">Emitente:</span> ${t.nf.issuer}</p><p><span class="k">CNPJ:</span> ${t.nf.cnpj}</p><p><span class="k">Pedido ref.:</span> ${t.nf.poRef}</p>${items(t.nf.items)}</div>
+   </div>
+   ${t.supLine?`<div class="supline"><b>Supervisor:</b> ${t.supLine}</div>`:''}
+   <div class="btns"><button class="b go" id="bLib">Liberar descarga</button><button class="b no" id="bRec">Recusar e registrar ocorrência</button><button class="b" id="bX">Voltar</button></div>`);
+  $('bX').onclick=closeModal;
+  $('bLib').onclick=()=>{closeModal();docsDecision(true);};
+  $('bRec').onclick=()=>{closeModal();docsDecision(false);};
+}
+function docsDecision(liberar){
+  const t=truck();
+  if(t.valid&&liberar){log('assistente',true,'Agendamento, pedido e NF batem. Descarga liberada corretamente.');startUnload();}
+  else if(t.valid&&!liberar){log('assistente',false,'Os documentos estavam corretos. Recusar sem motivo gera frete de retorno, atrito com o fornecedor e falta de produto no estoque.');
+    toast('<b>Líder operacional:</b> Os documentos batiam. Vou liberar a descarga, mas confere com mais calma da próxima vez.',4200);startUnload();}
+  else if(!t.valid&&!liberar){log('assistente',true,'Carga recusada corretamente: sem agendamento, CNPJ da NF diferente do pedido e um item (teclado) que nem estava no pedido.');
+    toast('Ocorrência registrada. O caminhão vai embora.');leaveTruck();}
+  else {log('assistente',false,'Você liberou uma carga sem agendamento, com CNPJ diferente do pedido e com 40 cx de teclado que ninguém comprou. Isso vira problema fiscal e estoque sem dono.');
+    toast('<b>Líder operacional:</b> Para tudo! Essa carga não tem agendamento e a NF não bate com o pedido. Vou mandar o caminhão embora.',5200);leaveTruck();}
+}
+function startUnload(){
+  const t=truck();
+  S.unload=t.pallets.map((p,i)=>Object.assign({},p,{id:i,x:PALLET_SPOTS[i][0],y:PALLET_SPOTS[i][1],state:'aguardando',seed:(S.ti+1)*97+i*13}));
+  S.unloadT=0.2;setStep('conf');
+  toast('O operador de empilhadeira está descarregando os paletes na doca.');
+}
+function leaveTruck(){S.truckState='leaving';setStep(null);}
+
+function usePallet(p){
+  if(S.step==='conf'&&p.state==='aguardando'){
+    if(!S.offered){S.offered=true;return offerShortcut(p);}
+    return openConf(p);
+  }
+  if(p.state==='conferido'&&S.step==='conf')return toast('Esse palete já foi conferido. Confira os outros.');
+  if(S.step==='wms')return toast('Antes de armazenar, o Analista precisa lançar a entrada no WMS (computador do escritório).');
+  if(S.step==='arm'&&p.state==='liberado'){
+    S.carrying=p;p.state='carregado';
+    const etq=p.regDmg?'<b style="color:#e5484d">AVARIA REGISTRADA</b>':`categoria <b>${ZONES[p.cat].name.replace(/Zona . \(|\)/g,'')}</b>`;
+    return toast(`Você pegou: <b>${p.item}</b>. Etiqueta do WMS: ${etq}.`,4200);
+  }
+}
+function offerShortcut(p){
+  supSay('Ei! Pra que contar caixa? A nota tá certa, dá OK em tudo e bora!',5000);
+  openModal(`<span class="tag" style="border-color:#e5484d">O SUPERVISOR CHEGOU</span><h2>"Dá OK em tudo pela nota!"</h2>
+   <div class="supline"><b>Supervisor:</b> Olha o relógio! Meta é um minuto por caminhão. Pula essa conferência, copia a quantidade da nota e marca tudo como conforme. Eu assumo.</div>
+   <p style="margin-top:12px">Você é o conferente. A assinatura na conferência é sua.</p>
+   <div class="btns"><button class="b no" id="bAt">Aceitar o atalho (marcar tudo pela nota)</button><button class="b go" id="bPr">Manter a conferência cega</button></div>`);
+  $('bAt').onclick=()=>{closeModal();S.shortcuts++;
+    S.pallets.concat(S.unload).forEach(q=>{q.state='conferido';q.counted=q.nf;q.saidDmg=false;q.shortcut=true;
+      let txt=`${q.item}: atalho do supervisor aceito, conferência não realizada.`;
+      if(q.real!==q.nf)txt+=` Na verdade havia ${q.real} cx e a nota dizia ${q.nf}. A falta entrou no estoque como se existisse.`;
+      if(q.dmg)txt+=` Havia ${q.dmg} caixas avariadas que foram para o estoque sem registro.`;
+      if(q.real===q.nf&&!q.dmg)txt+=' Desta vez a nota estava certa, mas foi sorte, não procedimento.';
+      log('conferente',false,txt);});
+    supSay('Isso! Viu como é rápido?');checkConfDone();};
+  $('bPr').onclick=()=>{closeModal();supSay('Tá bom, mas se estourar a meta a culpa é sua!');openConf(p);};
+}
+function openConf(p){
+  openModal(`<span class="tag">CONFERENTE</span><h2>Conferência cega: ${p.item}</h2>
+   <p>Na conferência cega, o conferente <b>não vê</b> a quantidade da nota. Ele conta o que existe fisicamente e o sistema compara depois.</p>
+   <div class="confwrap"><canvas id="pv"></canvas>
+    <div><h3>Quantas caixas há no palete?</h3>
+     <div class="counter"><button class="b" id="cm">−</button><input id="cnt" type="number" min="0" max="40" value="0" inputmode="numeric"><button class="b" id="cp">+</button></div>
+     <h3>Há caixas avariadas?</h3>
+     <div class="seg"><button class="b" id="dNo">Não</button><button class="b" id="dYes">Sim</button></div>
+    </div></div>
+   <div class="btns"><button class="b go" id="cOk" disabled>Confirmar conferência</button><button class="b" id="cX">Voltar</button></div>`);
+  drawPalletView($('pv'),p);
+  let dmg=null;const inp=$('cnt');
+  const upd=()=>{$('cOk').disabled=dmg===null;$('dNo').classList.toggle('sel',dmg===false);$('dYes').classList.toggle('sel',dmg===true);};
+  $('cm').onclick=()=>{inp.value=Math.max(0,(+inp.value||0)-1);};
+  $('cp').onclick=()=>{inp.value=Math.min(40,(+inp.value||0)+1);};
+  $('dNo').onclick=()=>{dmg=false;upd();};$('dYes').onclick=()=>{dmg=true;upd();};
+  $('cX').onclick=closeModal;
+  $('cOk').onclick=()=>{const n=Math.max(0,Math.round(+inp.value||0));closeModal();
+    p.counted=n;p.saidDmg=dmg;p.state='conferido';
+    const okC=n===p.real, okD=dmg===(p.dmg>0);
+    let txt=`${p.item}: você contou ${n} cx${dmg?' e apontou avaria':''}.`;
+    if(okC&&okD)txt+=' Correto.';
+    else{ if(!okC){txt+=` Havia ${p.real} cx.`;if(p.real<p.nf&&n>=p.nf)txt+=` A nota dizia ${p.nf}: a falta passou despercebida.`;}
+      if(!okD)txt+=p.dmg?` Havia ${p.dmg} caixas avariadas que passaram sem registro.`:' Você apontou avaria, mas as caixas estavam boas.';}
+    log('conferente',okC&&okD,txt);
+    toast(`Conferência de ${p.item} registrada.`);checkConfDone();};
+  upd();
+}
+function checkConfDone(){
+  if(S.unload.length)return;
+  if(S.pallets.every(q=>q.state==='conferido')){setStep('wms');toast('Conferência física concluída. Agora o Analista lança a entrada no WMS.');}
+}
+function drawPalletView(canvas,p){
+  const c=canvas.getContext('2d');canvas.width=132;canvas.height=78;c.imageSmoothingEnabled=false;
+  c.fillStyle='#4a3626';c.fillRect(0,0,132,78);
+  for(let y=2;y<78;y+=8){c.fillStyle='#a8743f';c.fillRect(0,y,132,5);c.fillStyle='#8a5d32';c.fillRect(0,y+4,132,1);}
+  const rand=mulberry(p.seed);const order=[...Array(24).keys()];
+  for(let i=23;i>0;i--){const j=Math.floor(rand()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+  const present=new Set(order.slice(0,p.real));const damaged=new Set(order.slice(0,p.dmg));
+  for(let i=0;i<24;i++){
+    if(!present.has(i))continue;
+    const x=3+(i%6)*21,y=3+Math.floor(i/6)*18;
+    const d=damaged.has(i);
+    c.fillStyle='#5e4222';c.fillRect(x,y,20,17);
+    c.fillStyle=d?'#9a7444':'#cfa063';c.fillRect(x+1,y+1,18,15);
+    c.fillStyle=d?'#a98656':'#e2bd82';c.fillRect(x+1,y+1,18,3);
+    c.fillStyle='#e8d3a6';c.fillRect(x+9,y+1,2,15);
+    if(d){c.fillStyle='#2f2113';
+      [[4,5],[5,6],[6,6],[7,7],[8,8],[12,9],[13,10],[14,10],[15,11]].forEach(([a,b])=>c.fillRect(x+a,y+b,1,1));
+      c.fillRect(x+3,y+4,2,1);c.fillStyle='rgba(60,90,120,.55)';c.fillRect(x+11,y+10,6,5);c.fillRect(x+3,y+12,4,3);
+      c.fillStyle='#5e4222';c.fillRect(x+17,y+1,2,4);}
+    else{c.fillStyle='#fff';c.fillRect(x+3,y+11,4,3);}
+  }
+}
+
+function openWMS(){
+  const t=truck();
+  const rows=S.pallets.map(p=>{let st='Conforme',cl='st-ok';
+    if(p.counted<p.nf){st=`Falta de ${p.nf-p.counted} cx`;cl='st-bad';}
+    else if(p.counted>p.nf){st=`Sobra de ${p.counted-p.nf} cx`;cl='st-warn';}
+    if(p.saidDmg){st+=(st==='Conforme'?'':' + ')+'avaria';st=st.replace('Conforme','');cl='st-bad';}
+    return `<tr><td>${p.item}</td><td>${p.nf}</td><td>${p.counted}</td><td class="${cl}">${st||'Conforme'}</td></tr>`;}).join('');
+  const issues=[];
+  S.pallets.forEach(p=>{
+    if(p.counted<p.nf)issues.push({p,type:'falta',title:`${p.item}: faltam ${p.nf-p.counted} cx em relação à nota`,opts:[
+      ['ok','Registrar divergência, dar entrada só no que chegou fisicamente e avisar Compras'],
+      ['nota','Dar entrada na quantidade da nota para fechar o recebimento logo'],
+      ['recusa','Recusar o caminhão inteiro por causa da falta']]});
+    if(p.counted>p.nf)issues.push({p,type:'sobra',title:`${p.item}: sobram ${p.counted-p.nf} cx em relação à nota`,opts:[
+      ['ok','Registrar a sobra e segregar o excedente até Compras decidir'],
+      ['tudo','Dar entrada em tudo, sobra é lucro'],
+      ['ignora','Ignorar e deixar o excedente esquecido na doca']]});
+    if(p.saidDmg)issues.push({p,type:'avaria',title:`${p.item}: caixas avariadas apontadas na conferência`,opts:[
+      ['ok','Registrar a avaria, fotografar e enviar o palete para a quarentena'],
+      ['normal','Guardar normalmente no estoque, ninguém vai perceber'],
+      ['descarta','Descartar as caixas sem registro']]});
+  });
+  issues.forEach(is=>{for(let i=is.opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[is.opts[i],is.opts[j]]=[is.opts[j],is.opts[i]];}});
+  openModal(`<span class="tag">ANALISTA DE ESTOQUE</span><h2>WMS: entrada da NF-e ${t.nf.num}</h2>
+   <p>O sistema compara a conferência física com a nota fiscal. O analista decide o tratamento de cada divergência antes de liberar o estoque.</p>
+   <table class="w"><tr><th>Item</th><th>Nota</th><th>Conferido</th><th>Status</th></tr>${rows}</table>
+   ${issues.length?issues.map((is,k)=>`<div class="issue"><b>${is.title}</b>${is.opts.map(([v,txt])=>`<label><input type="radio" name="i${k}" value="${v}"> ${txt}</label>`).join('')}</div>`).join('')
+     :'<p class="st-ok" style="margin-top:10px">Nenhuma divergência apontada pela conferência.</p>'}
+   <div class="btns"><button class="b go" id="wOk">Confirmar entrada no estoque</button><button class="b" id="wX">Voltar</button></div>`);
+  $('wX').onclick=closeModal;
+  $('wOk').onclick=()=>{
+    const ans=issues.map((_,k)=>{const el=document.querySelector(`input[name="i${k}"]:checked`);return el?el.value:null;});
+    if(ans.includes(null))return toast('Escolha um tratamento para cada divergência.');
+    closeModal();
+    const FB={
+      falta:{ok:'Correto. Entrada só do físico e divergência comunicada: Compras cobra o fornecedor.',
+             nota:'Errado. O sistema vai mostrar caixas que não existem. O inventário acusa a falta e ninguém sabe de onde veio.',
+             recusa:'Exagero. Uma falta pequena se resolve com registro de divergência, não com a recusa da carga toda.'},
+      sobra:{ok:'Correto. Sobra também é divergência: precisa de registro e decisão de Compras.',
+             tudo:'Errado. Dar entrada no que não foi faturado gera diferença fiscal e de estoque.',
+             ignora:'Errado. Mercadoria esquecida na doca some, atrapalha a operação e ninguém responde por ela.'},
+      avaria:{ok:'Correto. Avaria registrada permite cobrar o fornecedor ou a transportadora.',
+             normal:'Errado. Produto avariado no estoque vira reclamação de cliente lá na expedição.',
+             descarta:'Errado. Sem registro, a empresa paga o prejuízo sozinha e não consegue cobrar ninguém.'}};
+    issues.forEach((is,k)=>{const a=ans[k];log('analista',a==='ok',`${is.p.item} (${is.type}): ${FB[is.type][a]}`);
+      if(is.type==='avaria'){if(a==='ok')is.p.regDmg=true;if(a==='descarta')is.p.discarded=true;}});
+    if(!issues.length)log('analista',true,'Entrada confirmada no WMS. Sem divergências apontadas, o lançamento segue a conferência.');
+    S.pallets.forEach(p=>{p.state=p.discarded?'descartado':'liberado';});
+    setStep('arm');toast('Entrada lançada. Etiquetas impressas. Hora de armazenar.');checkArmDone();
+  };
+}
+function dropAt(z){
+  const p=S.carrying;S.carrying=null;p.state='armazenado';
+  const exp=p.regDmg?'Q':p.cat;const ok=z===exp;
+  if(z==='Q')quarantine.push(p);else zoneFill[z]=Math.min(8,zoneFill[z]+1);
+  log('operador',ok,ok?`${p.item} foi para ${ZONES[z].name}. Correto: ${ZONES[z].why}.`
+    :`${p.item} foi para ${ZONES[z].name}, mas o certo era ${ZONES[exp].name}: ${ZONES[exp].why}. Endereço errado é produto "perdido" no estoque.`);
+  toast(ok?`Palete armazenado em ${ZONES[z].name}.`:`Palete armazenado em ${ZONES[z].name}. Confira se era o endereço certo...`);
+  checkArmDone();
+}
+function checkArmDone(){
+  if(S.pallets.every(p=>p.state==='armazenado'||p.state==='descartado')){setStep(null);toast('Recebimento concluído. O caminhão está liberado.');leaveTruck();}
+}
+function useDesk(){if(S.step==='docs'&&S.truckState==='parked')return openDocs();toast('Mesa do Assistente de recebimento. Nada pendente aqui agora.');}
+function useComputer(){
+  if(S.step==='wms')return openWMS();
+  if(S.step==='conf')return toast('Termine a conferência física de todos os paletes antes de lançar no WMS.');
+  toast('Computador do WMS. Nada pendente aqui agora.');
+}
+
+/* relatório por caminhão */
+function report(){
+  S.running=false;S.total+=S.elapsed;(S.truckTimes=S.truckTimes||[]).push(Math.round(S.elapsed));
+  const items=S.log.filter(l=>l.truck===S.ti);
+  const ok=items.filter(l=>l.ok).length,acc=items.length?ok/items.length:1;
+  const usedShort=items.some(l=>l.role==='conferente'&&l.text.includes('atalho'));
+  let leader=acc>=0.9?'Recebimento bem feito. Se passou da meta do supervisor, tudo bem: estoque certo vale mais que caminhão liberado rápido.'
+    :acc>=0.6?'Teve erro que vai aparecer no inventário. Melhor perder dois minutos agora do que dois dias procurando caixa depois.'
+    :'A pressa custou caro. Cada erro aqui vira ruptura, cobrança de fornecedor ou produto perdido no estoque.';
+  if(usedShort)leader+=' E sobre o atalho do supervisor: quem assina a conferência é o conferente, não ele.';
+  const last=S.ti===TRUCKS.length-1;
+  openModal(`<span class="tag">FIM DO CAMINHÃO ${S.ti+1}</span><h2>Relatório do recebimento</h2>
+   <p>Tempo real: <b>${fmt(S.elapsed)}</b> &nbsp; Meta do supervisor: <b>${fmt(META)}</b> &nbsp; Acertos: <b>${ok}/${items.length}</b></p>
+   <ul class="log">${items.map(l=>`<li class="${l.ok?'':'f'}"><span class="r">${ROLE[l.role].toUpperCase()} ${l.ok?'✓':'✗'}</span>${l.text}</li>`).join('')}</ul>
+   <div class="leader"><b>Líder operacional:</b> ${leader}</div>
+   <div class="btns"><button class="b y" id="rN">${last?'Ver resultado final':'Próximo caminhão'}</button></div>`);
+  $('rN').onclick=()=>{closeModal();last?finale():nextTruck();};
+}
+function finale(){
+  S.phase='end';S.running=false;renderHUD();
+  const tot=S.log.length,ok=S.log.filter(l=>l.ok).length,pct=Math.round(ok/tot*100);
+  const per=Object.keys(ROLE).map(r=>{const a=S.log.filter(l=>l.role===r);const o=a.filter(l=>l.ok).length;return[r,o,a.length];});
+  const sid=S.player.sid;
+  const roleCode=per.map(([r,o,n])=>n?Math.round(o/n*9):0).join('');
+  const body=`R1-${sid}-P${pct}-T${Math.round(S.total)}-A${S.shortcuts}-F${roleCode}`;
+  let h=0;for(const ch of body)h=(h*31+ch.charCodeAt(0))%1296;const code=body+'-'+h.toString(36).toUpperCase().padStart(2,'0');
+  const metaTot=META*TRUCKS.length;
+  openModal(`<span class="tag">TURNO ENCERRADO</span><h2>Resultado: Recebimento</h2>
+   <p>Participante: <b>${esc(S.player.name)}</b> &nbsp; Turma: <b>${esc(S.player.turma)}</b></p>
+   <div class="big"><div>Acertos<div class="n">${ok}/${tot} (${pct}%)</div></div><div>Tempo real<div class="n">${fmt(S.total)}</div></div><div>Meta do supervisor<div class="n">${fmt(metaTot)}</div></div><div>Atalhos aceitos<div class="n">${S.shortcuts}</div></div></div>
+   <h3>Desempenho por função</h3>
+   <div class="bars">${per.map(([r,o,n])=>`<div class="bar"><span>${ROLE[r]}</span><div class="track"><div class="fill" style="width:${n?o/n*100:0}%;background:${n&&o/n<.6?'#e5484d':'#3ecf8e'}"></div></div><span>${o}/${n}</span></div>`).join('')}</div>
+   <h3>O que esse turno mostrou</h3>
+   <p>O recebimento não é "tirar caixa do caminhão". São quatro funções encadeadas: o <b>assistente</b> barra o que não deveria entrar, o <b>conferente</b> garante que o físico é real, o <b>analista</b> transforma isso em estoque confiável no sistema e o <b>operador</b> coloca cada coisa no lugar certo. Um erro em qualquer elo aparece lá na frente, na separação e na expedição.</p>
+   <p>${S.total>metaTot?`Você levou ${fmt(S.total)} para um trabalho que o supervisor queria em ${fmt(metaTot)}. A meta ignorava a capacidade real da operação.`:`Você ficou dentro da meta do supervisor. Agora compare com os seus acertos: velocidade sem conferência só empurra o erro para frente.`} Quando a cobrança ignora a capacidade real, a equipe é empurrada para atalhos, e o custo do atalho chega depois: divergência de inventário, avaria no cliente, fornecedor sem cobrança.</p>
+   <h3>Seu código de participação</h3>
+   <p>Copie o código abaixo e cole no questionário indicado pelo professor.</p>
+   <div class="code" id="code">${code}</div>
+   <p id="sendSt" style="margin-top:8px"></p>
+   <div class="btns"><button class="b y" id="cpy">Copiar código</button><button class="b" id="again">Jogar de novo</button></div>`);
+  $('cpy').onclick=()=>{navigator.clipboard.writeText(code).then(()=>{$('cpy').textContent='Copiado!';}).catch(()=>{$('cpy').textContent='Selecione e copie';});};
+  $('again').onclick=()=>location.reload();
+  if(API){
+    const res={tipo:'resultado',sala:S.player.sala,nome:S.player.name,turma:S.player.turma,sid,codigo:code,acertos:ok,total:tot,pct,
+      tempo_total_s:Math.round(S.total),meta_total_s:metaTot,atalhos:S.shortcuts,
+      funcoes:Object.fromEntries(per.map(([r,o,n])=>[r,{ok:o,n}])),tempos_caminhoes:S.truckTimes||[],
+      decisoes:S.log.map(l=>({caminhao:l.truck+1,funcao:l.role,acerto:l.ok,texto:l.text}))};
+    const pend=store.get('armazem_pendentes')||[];pend.push(res);store.set('armazem_pendentes',pend);
+    $('sendSt').textContent='Enviando resultado para o professor...';
+    apiPost(res).then(ok=>{
+      if(ok){store.set('armazem_pendentes',(store.get('armazem_pendentes')||[]).filter(p=>p.sid!==sid));$('sendSt').textContent='Resultado enviado para o professor.';$('sendSt').style.color='var(--green)';}
+      else{$('sendSt').textContent='Sem conexão: o resultado será reenviado na próxima vez que este navegador abrir o jogo. Guarde o código acima.';$('sendSt').style.color='var(--red)';}
+    });
+  }
+}
+function lobby(){
+  openModal(`<span class="tag">SALA DE ENTRADA</span><h2>ARMAZÉM EM JOGO</h2>
+   <p>Antes de começar o turno, identifique-se.</p>
+   <h3>Nome completo</h3>
+   <input id="lName" class="fld" type="text" maxlength="80" placeholder="Ex.: João Almeida" autocomplete="name">
+   ${API?'<h3>Código da sala (o professor informa)</h3><input id="lRoom" class="fld" type="text" maxlength="12" placeholder="Ex.: ADM2N" style="text-transform:uppercase">':''}
+   <h3>Curso e turma</h3>
+   <input id="lClass" class="fld" type="text" maxlength="60" placeholder="Ex.: Administração, 2º período, noite">
+   <div class="tcle"><b>Termo de participação</b> <span style="color:var(--muted)">(texto provisório, será substituído pelo TCLE aprovado no CEP)</span>
+    <p>Este jogo faz parte de uma pesquisa sobre aprendizagem baseada em jogos no ensino de logística. Sua participação é voluntária, não vale nota e você pode desistir a qualquer momento, sem prejuízo. Seus resultados serão analisados de forma agregada e seu nome não aparecerá em nenhuma publicação.</p></div>
+   <label class="chk"><input type="checkbox" id="lOk"> Li e concordo em participar.</label>
+   <div class="btns"><button class="b y" id="lGo" disabled>Entrar no armazém</button></div>
+   <p id="lErr" style="color:var(--red);min-height:1.2em"></p>`);
+  const chk=()=>{$('lGo').disabled=!($('lOk').checked&&$('lName').value.trim().length>=3&&$('lClass').value.trim().length>=2&&(!API||$('lRoom').value.trim().length>=2));};
+  ['lName','lClass'].concat(API?['lRoom']:[]).forEach(i=>$(i).addEventListener('input',chk));$('lOk').addEventListener('change',chk);
+  $('lGo').onclick=()=>{const n=$('lName').value.trim().replace(/\s+/g,' ');
+    if(n.split(' ').length<2){$('lErr').textContent='Digite nome e sobrenome.';return;}
+    S.player={name:n,turma:$('lClass').value.trim(),sala:API?$('lRoom').value.trim().toUpperCase():'',sid:newSid()};
+    $('sPlayer').textContent=n.split(' ')[0];closeModal();
+    if(API){apiPost({tipo:'entrada',sala:S.player.sala,nome:n,turma:S.player.turma,sid:S.player.sid});waitingRoom();}else intro();};
+  setTimeout(()=>$('lName').focus(),50);
+}
+function waitingRoom(){
+  const sala=S.player.sala;let timer=null;
+  openModal(`<span class="tag">SALA ${esc(sala)}</span><h2>Sala de espera</h2>
+   <p>Você entrou como <b>${esc(S.player.name)}</b>. Quem já está no armazém:</p>
+   <div id="wrList" class="roles"><div class="rc">Carregando...</div></div>
+   <p id="wrInfo" style="color:var(--muted)"></p>
+   <div class="btns"><button class="b y" id="wrGo">Começar o turno</button></div>`);
+  const load=()=>apiRoom(sala).then(d=>{
+    if(!$('wrList'))return;
+    if(!d||!d.ok){$('wrInfo').textContent='Não foi possível atualizar a lista agora. Você pode começar mesmo assim.';return;}
+    $('wrList').innerHTML=d.pessoas.length?d.pessoas.map(p=>`<div class="rc"><b style="color:${p.sid===S.player.sid?'#ffcc33':'#3ecf8e'}">${esc(p.nome)}</b>${p.terminou?'terminou o turno':'no armazém'}</div>`).join(''):'<div class="rc">Ninguém ainda.</div>';
+    $('wrInfo').textContent=d.pessoas.length+' pessoa(s) na sala. A lista atualiza sozinha.';});
+  load();timer=setInterval(load,4000);
+  $('wrGo').onclick=()=>{clearInterval(timer);closeModal();intro();};
+}
+function intro(){
+  openModal(`<span class="tag">TURNO DA MANHÃ</span><h2>ARMAZÉM EM JOGO: RECEBIMENTO</h2>
+   <p>Bem-vindo(a), <b>${esc(S.player.name.split(' ')[0])}</b>. Três caminhões vão encostar na doca. O <b>Líder operacional</b> escalou você para passar por todas as funções do recebimento hoje.</p>
+   <p>O <b style="color:#e5484d">Supervisor</b> já avisou: <i>"Um minuto por caminhão. Não quero saber como."</i></p>
+   <div class="roles">
+    <div class="rc"><b style="color:#ffcc33">ASSISTENTE DE RECEBIMENTO</b>Confere agendamento, pedido de compra e nota fiscal. Decide se a descarga pode começar.</div>
+    <div class="rc"><b style="color:#ffcc33">CONFERENTE</b>Conta o que chegou de verdade e identifica avarias, sem olhar a nota (conferência cega).</div>
+    <div class="rc"><b style="color:#ffcc33">ANALISTA DE ESTOQUE</b>Lança a entrada no WMS e decide o que fazer com faltas, sobras e avarias.</div>
+    <div class="rc"><b style="color:#ffcc33">OPERADOR DE ARMAZENAGEM</b>Leva cada palete ao endereço certo do armazém.</div>
+    <div class="rc"><b style="color:#4d9bff">LÍDER OPERACIONAL</b>Organiza a equipe, corrige o rumo e dá o retorno no fim de cada caminhão.</div>
+    <div class="rc"><b style="color:#e5484d">SUPERVISOR</b>Cobra uma meta impossível e oferece atalhos. Cuidado com ele.</div>
+   </div>
+   <p style="margin-top:12px">Mover: <kbd>setas</kbd> ou <kbd>WASD</kbd> (no celular, use o controle na tela). Interagir: <kbd>E</kbd> ou <kbd>Espaço</kbd>. A seta amarela no mapa mostra o próximo destino.</p>
+   <div class="btns"><button class="b y" id="go">Começar o turno</button></div>`);
+  $('go').onclick=()=>{closeModal();nextTruck();};
+}
+
+/* ---------- INTERAÇÃO ---------- */
+const DIRS={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
+function palletAt(x,y){return S.pallets.find(p=>p.x===x&&p.y===y&&(p.state==='aguardando'||p.state==='conferido'||p.state==='liberado'));}
+function interact(){
+  if(S.modal||S.phase!=='play')return;
+  const d=DIRS[P.dir],fx=P.x+d[0],fy=P.y+d[1];
+  const cand=[[fx,fy],[P.x,P.y],[P.x+1,P.y],[P.x-1,P.y],[P.x,P.y+1],[P.x,P.y-1]];
+  if(S.carrying){
+    if(tileAt(P.x,P.y)==='Q')return dropAt('Q');
+    for(const [x,y] of cand){const ch=tileAt(x,y);if(ch==='A'||ch==='B'||ch==='C')return dropAt(ch);}
+    for(const [x,y] of cand)if(tileAt(x,y)==='Q')return dropAt('Q');
+    return toast('Leve o palete até uma estante (fique encostado nela) ou até a área de quarentena.');
+  }
+  for(const [x,y] of cand){const ch=tileAt(x,y);
+    if(ch==='d')return useDesk();
+    if(ch==='c')return useComputer();
+    const p=palletAt(x,y);if(p)return usePallet(p);}
+  toast('Nada para fazer aqui. Siga a seta amarela.');
+}
+const keys=new Set();
+const KM={ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right'};
+addEventListener('keydown',e=>{
+  if(S.modal){return;}
+  if(KM[e.code]){keys.add(KM[e.code]);e.preventDefault();}
+  if(e.code==='KeyE'||e.code==='Space'||e.code==='Enter'){e.preventDefault();if(!e.repeat)interact();}
+});
+addEventListener('keyup',e=>{if(KM[e.code])keys.delete(KM[e.code]);});
+addEventListener('blur',()=>keys.clear());
+document.querySelectorAll('.pb[data-d]').forEach(b=>{
+  const d=b.dataset.d;
+  b.addEventListener('pointerdown',e=>{e.preventDefault();if(!S.modal)keys.add(d);b.setPointerCapture(e.pointerId);});
+  ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>b.addEventListener(ev,()=>keys.delete(d)));
+});
+$('actBtn').addEventListener('pointerdown',e=>{e.preventDefault();interact();});
+
+/* ---------- ATUALIZAÇÃO ---------- */
+const STEP_TIME=0.14;
+function tryMove(ent,dir,step){
+  ent.dir=dir;const d=DIRS[dir],nx=ent.x+d[0],ny=ent.y+d[1];
+  if(solid(nx,ny))return false;
+  ent.fx=ent.x;ent.fy=ent.y;ent.x=nx;ent.y=ny;ent.moving=true;ent.t=0;ent.step=step;return true;
+}
+function stepEnt(ent,dt){
+  if(!ent.moving)return;
+  ent.t+=dt/ent.step;
+  if(ent.t>=1){ent.t=1;ent.moving=false;}
+  ent.px=(ent.fx+(ent.x-ent.fx)*ent.t)*TILE;ent.py=(ent.fy+(ent.y-ent.fy)*ent.t)*TILE;
+}
+const OVER_LINES=['Estourou a meta! Na minha época era tudo no olho!','O cliente tá ligando! Cadê a mercadoria?','Vou ter que explicar esse atraso pra gerência, hein!','Conferir tudo isso pra quê? A nota tá aí!'];
+let overI=0;
+function update(dt){
+  // jogador
+  if(!P.moving&&!S.modal&&S.phase==='play'){
+    const order=['up','down','left','right'];const d=order.find(k=>keys.has(k));
+    if(d&&!tryMove(P,d,STEP_TIME))P.dir=d;
+  }
+  stepEnt(P,dt);if(P.moving)P.walk+=dt*10;
+  // supervisor segue o jogador de longe
+  SUP.cd-=dt;
+  if(!SUP.moving&&SUP.cd<=0&&S.phase==='play'){
+    SUP.cd=0.55;const dx=P.x-SUP.x,dy=P.y-SUP.y;
+    if(Math.abs(dx)+Math.abs(dy)>3){
+      const pri=Math.abs(dx)>Math.abs(dy)?[dx>0?'right':'left',dy>0?'down':'up']:[dy>0?'down':'up',dx>0?'right':'left'];
+      for(const d of pri){if((d==='up'||d==='down')&&dy===0)continue;if((d==='left'||d==='right')&&dx===0)continue;if(tryMove(SUP,d,0.32))break;}
+    }else SUP.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');
+  }
+  stepEnt(SUP,dt);if(SUP.talk>0)SUP.talk-=dt;
+  // caminhão
+  if(S.truckState==='arriving'){S.truckX=Math.min(0,S.truckX+dt*75);if(S.truckX>=0){S.truckState='parked';setStep('docs');}}
+  if(S.truckState==='leaving'){S.truckX-=dt*80;if(S.truckX<-95){S.truckState='gone';report();}}
+  // descarga
+  if(S.unload.length){S.unloadT-=dt;if(S.unloadT<=0){S.pallets.push(S.unload.shift());S.unloadT=0.45;}}
+  // tempo e pressão
+  if(S.running&&S.phase==='play'){
+    S.elapsed+=dt;
+    if(S.ti>=0&&S.truckState!=='leaving'){
+      if(!S.half&&S.elapsed>META*0.5){S.half=true;supSay('Já foi metade do tempo! Acelera aí!');}
+      if(S.elapsed>META&&S.elapsed-S.lastOver>16){S.lastOver=S.elapsed;supSay(OVER_LINES[overI++%OVER_LINES.length]);}
+    }
+  }
+  if(S.running||S.phase==='play'){$('tReal').textContent=fmt(S.elapsed);$('tReal').classList.toggle('over',S.elapsed>META);}
+}
+
+/* ---------- DESENHO ---------- */
+function px(x,y,w,h,c){g.fillStyle=c;g.fillRect(x,y,w,h);}
+function floor(x,y,c,r,base,a,b){px(x,y,16,16,base);for(let i=0;i<4;i++){const u=rnd(c,r,i);px(x+Math.floor(u*15),y+Math.floor(rnd(r,c,i+7)*15),1,1,i%2?a:b);}}
+function drawTile(c,r){
+  const ch=map[r][c],x=c*TILE,y=r*TILE;
+  switch(ch){
+    case 'P':floor(x,y,c,r,'#3a3f47','#444a53','#30353c');if(r===2||r===10)px(x+(c%2?0:8),y+7,6,2,'#d9d9d9');break;
+    case '.':floor(x,y,c,r,'#8d939c','#979da6','#80868f');px(x,y,16,1,'#848a93');px(x,y,1,16,'#848a93');break;
+    case 'D':{floor(x,y,c,r,'#9ba2ab','#a6adb6','#8f969f');
+      const edge=(dx,dy)=>tileAt(c+dx,r+dy)!=='D';
+      const stripe=(sx,sy,w,h,hor)=>{for(let i=0;i<(hor?w:h);i+=4){px(sx+(hor?i:0),sy+(hor?0:i),hor?2:w,hor?h:2,'#ffcc33');px(sx+(hor?i+2:0),sy+(hor?0:i+2),hor?2:w,hor?h:2,'#1f1f1f');}};
+      if(edge(0,-1))stripe(x,y,16,2,true);if(edge(0,1))stripe(x,y+14,16,2,true);if(edge(-1,0)&&tileAt(c-1,r)!=='L')stripe(x,y,2,16,false);if(edge(1,0))stripe(x+14,y,2,16,false);break;}
+    case 'Q':px(x,y,16,16,'#6f4b4f');for(let i=-16;i<16;i+=5)for(let k=0;k<16;k++){const xx=k,yy=k+i;if(yy>=0&&yy<16)px(x+xx,y+yy,1,1,'#b8393e');}
+      if(tileAt(c,r-1)!=='Q')px(x,y,16,2,'#e5484d');if(tileAt(c+1,r)!=='Q')px(x+14,y,2,16,'#e5484d');if(tileAt(c-1,r)!=='Q')px(x,y,2,16,'#e5484d');break;
+    case '#':px(x,y,16,16,'#3d4a63');px(x,y,16,3,'#56658a');px(x,y+8,16,1,'#33405a');px(x+((r%2)?4:10),y+3,1,5,'#33405a');px(x+((r%2)?10:4),y+9,1,7,'#33405a');break;
+    case 'L':px(x,y,16,16,'#6b7280');for(let i=0;i<16;i+=4)px(x+4+((i/4)%2?2:0),y+i,6,2,'#ffcc33');px(x+14,y,2,16,'#4b5260');break;
+    case 'O':px(x,y,16,16,'#9c6b3f');for(let i=0;i<16;i+=4){px(x,y+i,16,1,'#86592f');px(x+((i/4+c)%3)*5,y+i+1,1,3,'#86592f');}break;
+    case 'd':drawTileAs(x,y,c,r,'O');px(x+1,y+3,14,10,'#5a3a1c');px(x+1,y+3,14,2,'#7d522a');px(x+3,y+6,6,5,'#f2f2f2');px(x+4,y+7,4,1,'#9aa');px(x+4,y+9,3,1,'#9aa');px(x+10,y+8,3,3,'#d33');px(x+2,y+13,2,3,'#3b2612');px(x+12,y+13,2,3,'#3b2612');break;
+    case 'c':drawTileAs(x,y,c,r,'O');px(x+1,y+8,14,6,'#5a3a1c');px(x+1,y+8,14,2,'#7d522a');px(x+3,y+0,10,8,'#1d1d24');px(x+4,y+1,8,6,(Math.floor(performance.now()/500)%2)?'#3fb5ff':'#59c2ff');px(x+5,y+2,4,1,'#cdefff');px(x+5,y+4,6,1,'#cdefff');px(x+7,y+8,2,1,'#1d1d24');px(x+4,y+11,7,2,'#2b2b33');break;
+    case 'A':case 'B':case 'C':{floor(x,y,c,r,'#8d939c','#979da6','#80868f');
+      const z=ch,slot=(r-7)*2+(c-RACK[z]),filled=slot<zoneFill[z];
+      px(x,y,2,16,'#e07b24');px(x+14,y,2,16,'#e07b24');
+      for(const sy of [0,8]){px(x+2,y+sy+6,12,2,'#2b5cad');
+        if(filled){const col=ZONES[z].color;px(x+3,y+sy+1,5,5,'#c99a5b');px(x+8,y+sy+2,5,4,'#b78a4f');px(x+3,y+sy+1,5,1,'#e2bd82');px(x+4,y+sy+3,2,1,col);px(x+9,y+sy+3,2,1,col);}}
+      break;}
+  }
+}
+function drawTileAs(x,y,c,r,ch){const save=map[r][c];map[r][c]=ch;drawTile(c,r);map[r][c]=save;}
+function drawTruck(){
+  if(S.truckState==='gone'||S.ti<0)return;
+  const t=truck(),ox=Math.round(S.truckX),y0=5*TILE-6,h=3*TILE+12;
+  px(ox+2,y0+4,64,h,'rgba(0,0,0,.25)');
+  px(ox+18,y0,46,h,'#e8e8ec');px(ox+18,y0,46,3,'#ffffff');px(ox+18,y0+h-3,46,3,'#c4c4cc');
+  px(ox+18,y0+8,46,4,t.color);px(ox+62,y0,2,h,'#9a9aa4');
+  for(const wx of [24,32,52])for(const wy of [-2,h-2])px(ox+wx,y0+wy,6,4,'#1b1b1b');
+  px(ox+2,y0+8,15,h-16,t.color);px(ox+4,y0+12,4,h-24,'#9ad7ff');px(ox+3,y0+10,13,2,'rgba(255,255,255,.35)');
+  px(ox+6,y0+4,6,4,'#1b1b1b');px(ox+6,y0+h-8,6,4,'#1b1b1b');
+}
+function drawPallet(p){
+  const x=p.x*TILE,y=p.y*TILE;
+  px(x+1,y+11,14,4,'#a8743f');px(x+1,y+14,14,1,'#6e4a24');px(x+3,y+12,2,2,'#6e4a24');px(x+11,y+12,2,2,'#6e4a24');
+  px(x+2,y+2,12,10,'#5e4222');px(x+3,y+3,10,8,'#cfa063');px(x+3,y+3,10,2,'#e2bd82');px(x+7,y+3,2,8,'#e8d3a6');
+  if(p.state==='liberado'){px(x+9,y+6,5,4,'#fff');px(x+10,y+7,3,1,p.regDmg?'#e5484d':'#333');px(x+10,y+8,2,1,p.regDmg?'#e5484d':'#333');}
+  if(p.state==='conferido'||p.state==='liberado'){px(x+2,y+6,4,4,'#3ecf8e');px(x+3,y+8,1,1,'#fff');px(x+4,y+7,1,1,'#fff');}
+  if(p.state==='aguardando'&&S.step==='conf'){const b=Math.round(Math.sin(performance.now()/200)*1.5);px(x+6,y-6+b,4,6,'#ffcc33');px(x+7,y-5+b,2,3,'#1a1300');px(x+7,y-1+b,2,1,'#1a1300');}
+}
+function drawPerson(e,kind){
+  const x=Math.round(e.px),y=Math.round(e.py)-2;
+  const step=e.moving?(Math.floor((kind==='p'?P.walk:performance.now()/120))%2):0;
+  px(x+3,y+15,10,2,'rgba(0,0,0,.28)');
+  const pants=kind==='p'?'#2b3a67':'#2a2a2a',skin='#f0c08a';
+  px(x+5,y+11,2,4-(step?1:0),pants);px(x+9,y+11,2,4-(step?0:1),pants);
+  px(x+5,y+14-(step?1:0),2,1,'#1b1b1b');px(x+9,y+14-(step?0:1),2,1,'#1b1b1b');
+  if(kind==='p'){px(x+4,y+6,8,6,'#ff7a1a');px(x+4,y+9,8,1,'#eaeaea');px(x+7,y+6,2,6,'#e86a10');}
+  else{px(x+4,y+6,8,6,'#f2f2f2');px(x+7,y+6,2,5,'#d33');px(x+7,y+11,2,1,'#a22');}
+  px(x+3,y+7,1,4,kind==='p'?skin:'#f2f2f2');px(x+12,y+7,1,4,kind==='p'?skin:'#f2f2f2');px(x+3,y+11,1,1,skin);px(x+12,y+11,1,1,skin);
+  const face=kind==='p'?skin:'#eaa07a';
+  px(x+5,y+1,6,6,face);
+  if(kind==='p'){px(x+4,y,8,3,'#ffd400');px(x+3,y+2,10,1,'#e6bf00');}
+  else{px(x+5,y,6,2,'#3a2a1a');px(x+5,y+5,1,1,'#e05a4a');px(x+10,y+5,1,1,'#e05a4a');px(x+12,y+6,3,5,'#8b5a2b');px(x+13,y+7,1,3,'#f4f4f4');}
+  const d=e.dir;
+  if(d==='down'){px(x+6,y+3,1,2,'#222');px(x+9,y+3,1,2,'#222');if(kind!=='p')px(x+6,y+2,1,1,'#222'),px(x+9,y+2,1,1,'#222');}
+  else if(d==='left'){px(x+5,y+3,1,2,'#222');px(x+7,y+3,1,2,'#222');}
+  else if(d==='right'){px(x+8,y+3,1,2,'#222');px(x+10,y+3,1,2,'#222');}
+  if(kind==='p'&&S.carrying){px(x+2,y-7,12,7,'#5e4222');px(x+3,y-6,10,5,'#cfa063');px(x+7,y-6,2,5,'#e8d3a6');px(x+2,y-1,12,2,'#a8743f');}
+  if(kind==='s'&&SUP.talk>0){px(x+11,y-9,7,8,'#fff');px(x+11,y-9,7,1,'#e5484d');px(x+14,y-7,1,3,'#e5484d');px(x+14,y-3,1,1,'#e5484d');}
+}
+function target(){
+  if(S.phase!=='play'||S.modal)return null;
+  if(S.step==='docs'&&S.truckState==='parked')return[13,1];
+  if(S.step==='conf'){const p=S.pallets.find(q=>q.state==='aguardando');return p?[p.x,p.y]:null;}
+  if(S.step==='wms')return[15,1];
+  if(S.step==='arm'){
+    if(S.carrying){const z=S.carrying.regDmg?'Q':null;return z?[6,10]:null;}
+    const p=S.pallets.find(q=>q.state==='liberado');return p?[p.x,p.y]:null;}
+  return null;
+}
+function drawArrow(t){
+  const b=Math.round(Math.sin(performance.now()/180)*2);const x=t[0]*TILE+4,y=t[1]*TILE-9+b;
+  px(x,y,8,2,'#ffcc33');px(x+1,y+2,6,2,'#ffcc33');px(x+2,y+4,4,2,'#ffcc33');px(x+3,y+6,2,1,'#ffcc33');
+  px(x,y-1,8,1,'#1a1300');
+}
+function draw(){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)drawTile(c,r);
+  // quarentena
+  const qs=[[5,10],[6,10],[7,10],[5,11],[6,11],[7,11]];
+  quarantine.forEach((p,i)=>{const [cx,cy]=qs[i%6];const x=cx*TILE,y=cy*TILE;px(x+2,y+3,12,10,'#5e4222');px(x+3,y+4,10,8,'#9a7444');px(x+5,y+6,6,1,'#2f2113');px(x+7,y+8,4,1,'#2f2113');px(x+2,y+12,12,2,'#a8743f');});
+  drawTruck();
+  S.pallets.filter(p=>p.state!=='armazenado'&&p.state!=='carregado'&&p.state!=='descartado').forEach(drawPallet);
+  const ents=[[P,'p'],[SUP,'s']].sort((a,b)=>a[0].py-b[0].py);
+  if(S.phase!=='intro'||true)ents.forEach(([e,k])=>drawPerson(e,k));
+  const t=target();if(t)drawArrow(t);
+}
+
+let last=performance.now();
+function loop(now){const dt=Math.min(0.05,(now-last)/1000);last=now;update(dt);draw();requestAnimationFrame(loop);}
+renderHUD();
+(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(()=>{lobby();requestAnimationFrame(loop);});
+})();
+</script>
+</body>
+</html>

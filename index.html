@@ -545,7 +545,7 @@ function finale(){
    <div class="code" id="code">${code}</div>
    <p id="sendSt" style="margin-top:8px"></p>
    <div class="btns"><button class="b y" id="cpy">Copiar código</button><button class="b" id="again">Jogar de novo</button></div>
-   <p style="color:var(--muted)">Obrigado por participar! Se jogar de novo, a nova partida não será registrada na pesquisa.</p>`
+   <p style="color:var(--muted)">Obrigado por participar! Se quiser jogar de novo, escolha "Quero só jogar, sem participar" na sala de entrada, para não registrar uma segunda participação.</p>`
    :`<p style="color:var(--muted)">Você jogou sem participar da pesquisa. Nenhum dado foi enviado.</p><div class="btns"><button class="b" id="again">Jogar de novo</button></div>`}`);
   $('again').onclick=()=>{store.set('armazem_participou',true);location.reload();};
   if(!S.research)return;

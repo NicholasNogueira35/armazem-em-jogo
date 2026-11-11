@@ -1,6 +1,8 @@
 # Armazém em Jogo: Recebimento
 
-Jogo educacional que simula o recebimento de um armazém (assistente, conferente, analista de estoque e operador de armazenagem), com sala de entrada, sala de espera por turma e envio automático dos resultados para uma planilha Google.
+Jogo educacional que simula o recebimento de um armazém (assistente, conferente, analista de estoque e operador de armazenagem), usado como instrumento de pesquisa com **adultos leigos em logística**.
+
+Fluxo do participante: **sala de entrada** (perfil + termo) → **pré-teste** (7 perguntas) → **jogo** (3 caminhões) → **pós-teste** (as mesmas 7 perguntas) → **2 perguntas abertas** → resultado. Tudo é enviado automaticamente para uma planilha Google.
 
 ## Arquivos
 
@@ -45,17 +47,37 @@ Com `apiUrl` vazio, o jogo funciona em modo demonstração (não envia nada e n�
 3. No repositório, vá em **Settings > Pages**. Em **Source**, escolha **Deploy from a branch**, branch **main**, pasta **/ (root)**, e salve.
 4. Em 1 ou 2 minutos o jogo estará em `https://SEU-USUARIO.github.io/armazem-em-jogo/`.
 
-## Como usar em sala
+## Como divulgar
 
-1. Escolha um **código de sala** curto para cada turma (ex.: `ADM2N`) e escreva no quadro junto com o link.
-2. O aluno entra com nome, código da sala e turma e aceita o termo. Depois vai para a sala de espera, onde vê quem já entrou (só primeiro nome e inicial).
-3. Ao terminar, o resultado vai sozinho para a aba **Resultados**. Se a internet cair, o jogo tenta reenviar na próxima vez que o aluno abrir a página, e o código de participação continua na tela como plano B.
+- **Link geral (pesquisa online):** `https://nicholasnogueira35.github.io/armazem-em-jogo/`. Os dados entram com a sala `ONLINE`.
+- **Link com sala (para aplicar com um grupo ao mesmo tempo):** acrescente `?sala=CODIGO`, por exemplo `.../armazem-em-jogo/?sala=GRUPO1`. Depois do pré-teste aparece a sala de espera com quem já entrou (primeiro nome e inicial). A sala também ajuda a saber de onde veio cada participante (ex.: `?sala=LINKEDIN`, `?sala=WHATSAPP`).
+- Menores de 18 anos são barrados da pesquisa (podem jogar, mas nada é enviado).
+- O botão **"Quero só jogar, sem participar"** permite jogar sem enviar dados.
+- Se a internet cair, o jogo tenta reenviar na próxima vez que a pessoa abrir a página.
+
+## Pré e pós-teste
+
+As mesmas 7 perguntas antes e depois do jogo, sempre com a opção **"Não sei"**. A ordem das alternativas é sorteada por participante (igual no pré e no pós). No código, a alternativa correta é sempre a de índice `0`; na planilha, `pre_respostas`/`pos_respostas` guardam o índice escolhido (`ns` = não sei).
+
+| Pergunta | Tipo | Conteúdo |
+|---|---|---|
+| q1 | retenção | Quem confere NF, pedido e agendamento |
+| q2 | retenção | O que é conferência cega |
+| q3 | retenção | Caminhão sem agendamento e CNPJ divergente |
+| q4 | retenção | Falta de caixas na conferência |
+| q5 | retenção | Destino do palete com avaria |
+| q6 | transferência | Validade abaixo do mínimo do contrato (não aparece no jogo) |
+| q7 | transferência | Lacre violado com conteúdo aparentemente intacto (não aparece no jogo) |
 
 ## O que fica registrado
 
-**Entradas:** data e hora, sala, nome, turma e identificador da partida (`sid`).
+**Entradas:** data e hora, sala, nome, `sid`, idade, escolaridade, área, se estuda/trabalha com logística, frequência com que joga e `publico` (`alvo` = leigo em logística; `fora` = já estudou ou trabalhou com logística).
 
-**Resultados:** acertos e total de decisões, % de acerto, tempo total e meta do supervisor, atalhos aceitos, acertos por função (assistente, conferente, analista, operador), tempo de cada caminhão e, em `decisoes_json`, cada decisão com o texto do feedback (útil para a análise qualitativa).
+**Resultados:** perfil; pré e pós-teste (total, retenção, transferência, quantos "não sei", tempo); acertos no jogo e por função; tempo total e por caminhão; atalhos aceitos; respostas abertas; e, em `decisoes_json`, cada decisão com o feedback recebido.
+
+## Atualizar o script depois de uma mudança
+
+Cole o novo `Code.gs` no Apps Script, salve, rode `setup` uma vez e vá em **Implantar > Gerenciar implantações > lápis > Versão: Nova versão > Implantar**. A URL `/exec` continua a mesma. As colunas novas aparecem sozinhas no fim das abas, sem apagar as antigas.
 
 ## Cuidados (LGPD e ética)
 

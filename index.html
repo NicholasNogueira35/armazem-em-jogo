@@ -100,6 +100,9 @@
   .big>div{flex:1;min-width:150px;background:#0f1525;border:2px solid #33426a;padding:10px}
   .big .n{font-family:'Press Start 2P',monospace;font-size:18px;color:var(--yellow);margin-top:6px}
 .fld{width:100%;font-family:'VT323',monospace;font-size:22px;padding:8px 10px;background:#0f1525;color:var(--ink);border:3px solid #33426a}
+  .fld{display:block}
+  select.fld{font-size:20px}
+  textarea.fld{resize:vertical}
   .fld:focus{outline:none;border-color:var(--yellow)}
   .tcle{background:#0f1525;border:2px solid #33426a;padding:10px 12px;margin-top:14px;font-size:19px}
   .chk{display:flex;gap:10px;align-items:center;margin-top:12px;cursor:pointer}
@@ -222,7 +225,7 @@ const STEPS=[['docs','1. Documentos','Assistente'],['conf','2. Conferência','Co
 /* ---------- ESTADO ---------- */
 const P={x:9,y:6,px:9*TILE,py:6*TILE,dir:'down',moving:false,fx:0,fy:0,t:0,walk:0};
 const SUP={x:19,y:5,px:19*TILE,py:5*TILE,dir:'down',moving:false,fx:0,fy:0,t:0,cd:0};
-const S={phase:'intro',ti:-1,step:null,truckState:'gone',truckX:-90,pallets:[],carrying:null,unload:[],unloadT:0,
+const S={research:false,quiz:{},abertas:null,phase:'intro',ti:-1,step:null,truckState:'gone',truckX:-90,pallets:[],carrying:null,unload:[],unloadT:0,
   elapsed:0,total:0,log:[],shortcuts:0,offered:false,half:false,lastOver:-99,modal:false,running:false,score:0};
 
 function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -467,66 +470,148 @@ function report(){
    <p>Tempo real: <b>${fmt(S.elapsed)}</b> &nbsp; Meta do supervisor: <b>${fmt(META)}</b> &nbsp; Acertos: <b>${ok}/${items.length}</b></p>
    <ul class="log">${items.map(l=>`<li class="${l.ok?'':'f'}"><span class="r">${ROLE[l.role].toUpperCase()} ${l.ok?'✓':'✗'}</span>${l.text}</li>`).join('')}</ul>
    <div class="leader"><b>Líder operacional:</b> ${leader}</div>
-   <div class="btns"><button class="b y" id="rN">${last?'Ver resultado final':'Próximo caminhão'}</button></div>`);
-  $('rN').onclick=()=>{closeModal();last?finale():nextTruck();};
+   <div class="btns"><button class="b y" id="rN">${last?(S.research?'Continuar':'Ver resultado final'):'Próximo caminhão'}</button></div>`);
+  $('rN').onclick=()=>{closeModal();last?endOfGame():nextTruck();};
 }
+/* ---------- QUESTIONÁRIO (pré e pós-teste) ---------- */
+const QUIZ=[
+ {id:'q1',tipo:'retencao',q:'Antes de descarregar um caminhão, quem confere se a nota fiscal bate com o pedido de compra e com o agendamento?',
+  o:['Assistente de recebimento','Conferente','Operador de empilhadeira','Supervisor']},
+ {id:'q2',tipo:'retencao',q:'O que é conferência cega?',
+  o:['Contar a mercadoria sem ver a quantidade informada na nota fiscal','Conferir apenas os documentos, sem abrir a carga','Conferir só algumas caixas, por amostragem','Deixar o motorista contar e assinar']},
+ {id:'q3',tipo:'retencao',q:'Chega um caminhão sem agendamento e com nota fiscal de um CNPJ diferente do que consta no pedido de compra. O que o recebimento deve fazer?',
+  o:['Recusar o recebimento e registrar a ocorrência','Descarregar e resolver a documentação depois','Receber só os itens que estão no pedido','Liberar a descarga se o supervisor autorizar']},
+ {id:'q4',tipo:'retencao',q:'Na conferência, faltam 2 caixas em relação à nota fiscal. Qual é o procedimento correto?',
+  o:['Registrar a divergência, dar entrada só no que chegou e avisar Compras','Dar entrada na quantidade da nota para não atrasar','Recusar o caminhão inteiro','Ignorar, porque a diferença é pequena']},
+ {id:'q5',tipo:'retencao',q:'Para onde vai um palete com avaria registrada no recebimento?',
+  o:['Para uma área de quarentena, até a decisão sobre o produto','Para o estoque normal, junto com os outros','Para o descarte, sem registro','Para a expedição, para sair primeiro']},
+ {id:'q6',tipo:'transferencia',q:'Chega um lote de alimentos com validade vencendo em 5 dias. O contrato com o fornecedor exige validade mínima de 30 dias no recebimento. O que o recebimento deve fazer?',
+  o:['Registrar a não conformidade e não receber o lote sem antes acionar Compras','Receber e posicionar na frente para sair primeiro','Receber normalmente, porque validade não é responsabilidade do recebimento','Receber e avisar o comercial para fazer uma promoção']},
+ {id:'q7',tipo:'transferencia',q:'Na conferência, uma caixa está com o lacre violado, mas o conteúdo parece intacto. O que fazer?',
+  o:['Registrar a ocorrência e separar a caixa para verificação antes de dar entrada','Receber normalmente, já que o conteúdo parece certo','Fechar com fita e guardar no estoque','Recusar o caminhão inteiro']}
+];
+// a primeira opção de cada pergunta é a correta; a ordem exibida é embaralhada por participante (igual no pré e no pós)
+function quizOrder(qi){const r=mulberry(([...S.player.sid].reduce((a,c)=>a*31+c.charCodeAt(0),7)+qi*101)|0);const idx=[0,1,2,3];
+  for(let i=3;i>0;i--){const j=Math.floor(r()*(i+1));[idx[i],idx[j]]=[idx[j],idx[i]];}return idx;}
+function runQuiz(fase,next){
+  const t0=performance.now();
+  const pre=fase==='pre';
+  openModal(`<span class="tag">${pre?'ANTES DO JOGO':'DEPOIS DO JOGO'}</span><h2>${pre?'O que você já sabe?':'E agora?'}</h2>
+   <p>${pre?'Responda o que você sabe hoje sobre o recebimento de um armazém. Não vale nota e ninguém espera que você saiba.':'As mesmas perguntas do início. Responda com o que você entende agora.'} Se não souber, marque <b>"Não sei"</b>: isso ajuda a pesquisa mais do que um chute.</p>
+   ${QUIZ.map((qq,qi)=>`<div class="issue"><b>${qi+1}. ${qq.q}</b>${quizOrder(qi).map(k=>`<label><input type="radio" name="${qq.id}" value="${k}"> ${qq.o[k]}</label>`).join('')}<label><input type="radio" name="${qq.id}" value="ns"> Não sei</label></div>`).join('')}
+   <div class="btns"><button class="b y" id="qGo">${pre?'Começar o jogo':'Continuar'}</button></div>
+   <p id="qErr" style="color:var(--red);min-height:1.2em"></p>`);
+  $('qGo').onclick=()=>{
+    const ans={};for(const qq of QUIZ){const el=document.querySelector(`input[name="${qq.id}"]:checked`);if(!el){$('qErr').textContent='Responda todas as perguntas (pode ser "Não sei").';return;}ans[qq.id]=el.value;}
+    const sc=t=>QUIZ.filter(qq=>(!t||qq.tipo===t)&&ans[qq.id]==='0').length;
+    S.quiz[fase]={ans,total:sc(),ret:sc('retencao'),transf:sc('transferencia'),ns:Object.values(ans).filter(v=>v==='ns').length,tempo_s:Math.round((performance.now()-t0)/1000)};
+    closeModal();next();};
+}
+function openQuestions(next){
+  openModal(`<span class="tag">SUA OPINIÃO</span><h2>Duas perguntas abertas</h2>
+   <p>Escreva com suas palavras. Não existe resposta certa. Se preferir, pode deixar em branco.</p>
+   <h3>1. O que você entendeu sobre o trabalho num armazém que não sabia antes?</h3>
+   <textarea id="ab1" class="fld" rows="4" maxlength="2000"></textarea>
+   <h3>2. Como você lidou com a pressão do supervisor? O que pensou quando ele ofereceu o atalho?</h3>
+   <textarea id="ab2" class="fld" rows="4" maxlength="2000"></textarea>
+   <div class="btns"><button class="b y" id="abGo">Ver meu resultado</button></div>`);
+  $('abGo').onclick=()=>{S.abertas=[$('ab1').value.trim(),$('ab2').value.trim()];closeModal();next();};
+}
+function endOfGame(){
+  if(S.research)runQuiz('pos',()=>openQuestions(finale));else finale();
+}
+
 function finale(){
   S.phase='end';S.running=false;renderHUD();
   const tot=S.log.length,ok=S.log.filter(l=>l.ok).length,pct=Math.round(ok/tot*100);
   const per=Object.keys(ROLE).map(r=>{const a=S.log.filter(l=>l.role===r);const o=a.filter(l=>l.ok).length;return[r,o,a.length];});
   const sid=S.player.sid;
   const roleCode=per.map(([r,o,n])=>n?Math.round(o/n*9):0).join('');
-  const body=`R1-${sid}-P${pct}-T${Math.round(S.total)}-A${S.shortcuts}-F${roleCode}`;
+  const body=`R2-${sid}-P${pct}-T${Math.round(S.total)}-A${S.shortcuts}-F${roleCode}`;
   let h=0;for(const ch of body)h=(h*31+ch.charCodeAt(0))%1296;const code=body+'-'+h.toString(36).toUpperCase().padStart(2,'0');
   const metaTot=META*TRUCKS.length;
+  const qz=S.quiz;
   openModal(`<span class="tag">TURNO ENCERRADO</span><h2>Resultado: Recebimento</h2>
-   <p>Participante: <b>${esc(S.player.name)}</b> &nbsp; Turma: <b>${esc(S.player.turma)}</b></p>
-   <div class="big"><div>Acertos<div class="n">${ok}/${tot} (${pct}%)</div></div><div>Tempo real<div class="n">${fmt(S.total)}</div></div><div>Meta do supervisor<div class="n">${fmt(metaTot)}</div></div><div>Atalhos aceitos<div class="n">${S.shortcuts}</div></div></div>
+   <p>Participante: <b>${esc(S.player.name)}</b></p>
+   <div class="big"><div>Acertos no jogo<div class="n">${ok}/${tot} (${pct}%)</div></div><div>Tempo real<div class="n">${fmt(S.total)}</div></div><div>Meta do supervisor<div class="n">${fmt(metaTot)}</div></div><div>Atalhos aceitos<div class="n">${S.shortcuts}</div></div></div>
+   ${qz.pre&&qz.pos?`<div class="big"><div>Perguntas antes do jogo<div class="n">${qz.pre.total}/${QUIZ.length}</div></div><div>Perguntas depois do jogo<div class="n">${qz.pos.total}/${QUIZ.length}</div></div></div>`:''}
    <h3>Desempenho por função</h3>
    <div class="bars">${per.map(([r,o,n])=>`<div class="bar"><span>${ROLE[r]}</span><div class="track"><div class="fill" style="width:${n?o/n*100:0}%;background:${n&&o/n<.6?'#e5484d':'#3ecf8e'}"></div></div><span>${o}/${n}</span></div>`).join('')}</div>
    <h3>O que esse turno mostrou</h3>
    <p>O recebimento não é "tirar caixa do caminhão". São quatro funções encadeadas: o <b>assistente</b> barra o que não deveria entrar, o <b>conferente</b> garante que o físico é real, o <b>analista</b> transforma isso em estoque confiável no sistema e o <b>operador</b> coloca cada coisa no lugar certo. Um erro em qualquer elo aparece lá na frente, na separação e na expedição.</p>
    <p>${S.total>metaTot?`Você levou ${fmt(S.total)} para um trabalho que o supervisor queria em ${fmt(metaTot)}. A meta ignorava a capacidade real da operação.`:`Você ficou dentro da meta do supervisor. Agora compare com os seus acertos: velocidade sem conferência só empurra o erro para frente.`} Quando a cobrança ignora a capacidade real, a equipe é empurrada para atalhos, e o custo do atalho chega depois: divergência de inventário, avaria no cliente, fornecedor sem cobrança.</p>
-   <h3>Seu código de participação</h3>
-   <p>Copie o código abaixo e cole no questionário indicado pelo professor.</p>
+   ${S.research?`<h3>Seu código de participação</h3>
+   <p>Guarde este código. Ele identifica sua participação caso você queira retirar seus dados da pesquisa.</p>
    <div class="code" id="code">${code}</div>
    <p id="sendSt" style="margin-top:8px"></p>
-   <div class="btns"><button class="b y" id="cpy">Copiar código</button><button class="b" id="again">Jogar de novo</button></div>`);
+   <div class="btns"><button class="b y" id="cpy">Copiar código</button><button class="b" id="again">Jogar de novo</button></div>
+   <p style="color:var(--muted)">Obrigado por participar! Se jogar de novo, a nova partida não será registrada na pesquisa.</p>`
+   :`<p style="color:var(--muted)">Você jogou sem participar da pesquisa. Nenhum dado foi enviado.</p><div class="btns"><button class="b" id="again">Jogar de novo</button></div>`}`);
+  $('again').onclick=()=>{store.set('armazem_participou',true);location.reload();};
+  if(!S.research)return;
   $('cpy').onclick=()=>{navigator.clipboard.writeText(code).then(()=>{$('cpy').textContent='Copiado!';}).catch(()=>{$('cpy').textContent='Selecione e copie';});};
-  $('again').onclick=()=>location.reload();
+  store.set('armazem_participou',true);
   if(API){
-    const res={tipo:'resultado',sala:S.player.sala,nome:S.player.name,turma:S.player.turma,sid,codigo:code,acertos:ok,total:tot,pct,
-      tempo_total_s:Math.round(S.total),meta_total_s:metaTot,atalhos:S.shortcuts,
+    const pl=S.player,qp=qz.pre||{},qo=qz.pos||{};
+    const res={tipo:'resultado',versao:2,sala:pl.sala,nome:pl.name,sid,codigo:code,
+      idade:pl.idade,escolaridade:pl.escolaridade,area:pl.area,logistica:pl.logistica,jogos:pl.jogos,publico:pl.publico,
+      acertos:ok,total:tot,pct,tempo_total_s:Math.round(S.total),meta_total_s:metaTot,atalhos:S.shortcuts,
       funcoes:Object.fromEntries(per.map(([r,o,n])=>[r,{ok:o,n}])),tempos_caminhoes:S.truckTimes||[],
+      pre_total:qp.total,pre_retencao:qp.ret,pre_transferencia:qp.transf,pre_nao_sei:qp.ns,pre_tempo_s:qp.tempo_s,
+      pos_total:qo.total,pos_retencao:qo.ret,pos_transferencia:qo.transf,pos_nao_sei:qo.ns,pos_tempo_s:qo.tempo_s,
+      pre_respostas:qp.ans,pos_respostas:qo.ans,aberta_1:(S.abertas||[])[0]||'',aberta_2:(S.abertas||[])[1]||'',
       decisoes:S.log.map(l=>({caminhao:l.truck+1,funcao:l.role,acerto:l.ok,texto:l.text}))};
     const pend=store.get('armazem_pendentes')||[];pend.push(res);store.set('armazem_pendentes',pend);
-    $('sendSt').textContent='Enviando resultado para o professor...';
+    $('sendSt').textContent='Enviando suas respostas...';
     apiPost(res).then(ok=>{
-      if(ok){store.set('armazem_pendentes',(store.get('armazem_pendentes')||[]).filter(p=>p.sid!==sid));$('sendSt').textContent='Resultado enviado para o professor.';$('sendSt').style.color='var(--green)';}
-      else{$('sendSt').textContent='Sem conexão: o resultado será reenviado na próxima vez que este navegador abrir o jogo. Guarde o código acima.';$('sendSt').style.color='var(--red)';}
+      if(ok){store.set('armazem_pendentes',(store.get('armazem_pendentes')||[]).filter(p=>p.sid!==sid));$('sendSt').textContent='Respostas enviadas. Obrigado!';$('sendSt').style.color='var(--green)';}
+      else{$('sendSt').textContent='Sem conexão: suas respostas serão reenviadas na próxima vez que este navegador abrir o jogo.';$('sendSt').style.color='var(--red)';}
     });
   }
 }
+function getSala(){try{const s=new URLSearchParams(location.search).get('sala');return s?s.trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'').slice(0,12):'';}catch(e){return '';}}
 function lobby(){
+  const jaParticipou=store.get('armazem_participou');
+  const sel=(id,opts)=>`<select id="${id}" class="fld"><option value="">Selecione...</option>${opts.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select>`;
   openModal(`<span class="tag">SALA DE ENTRADA</span><h2>ARMAZÉM EM JOGO</h2>
-   <p>Antes de começar o turno, identifique-se.</p>
+   <p>Um jogo curto (cerca de 15 a 20 minutos) sobre o recebimento de mercadorias num armazém. Antes de começar, conte um pouco sobre você.</p>
+   ${jaParticipou?'<p style="color:var(--yellow)">Este navegador já registrou uma participação. Se for você de novo, use "Quero só jogar", logo abaixo.</p>':''}
    <h3>Nome completo</h3>
    <input id="lName" class="fld" type="text" maxlength="80" placeholder="Ex.: João Almeida" autocomplete="name">
-   ${API?'<h3>Código da sala (o professor informa)</h3><input id="lRoom" class="fld" type="text" maxlength="12" placeholder="Ex.: ADM2N" style="text-transform:uppercase">':''}
-   <h3>Curso e turma</h3>
-   <input id="lClass" class="fld" type="text" maxlength="60" placeholder="Ex.: Administração, 2º período, noite">
+   <h3>Idade</h3>
+   <input id="lAge" class="fld" type="number" min="0" max="120" inputmode="numeric" placeholder="Em anos" style="max-width:160px">
+   <h3>Escolaridade</h3>
+   ${sel('lEsc',[['medio','Ensino médio'],['tecnico','Curso técnico'],['sup_inc','Ensino superior incompleto (cursando)'],['sup','Ensino superior completo'],['pos','Pós-graduação']])}
+   <h3>Área de formação ou de trabalho</h3>
+   <input id="lArea" class="fld" type="text" maxlength="80" placeholder="Ex.: Física, Relações Internacionais, Enfermagem">
+   <h3>Você estuda ou já trabalhou com logística?</h3>
+   ${sel('lLog',[['nao','Não'],['estuda','Sim, estudo ou estudei logística'],['trabalha','Sim, trabalho ou já trabalhei com logística']])}
+   <h3>Com que frequência você joga videogame (celular, computador ou console)?</h3>
+   ${sel('lGame',[['nunca','Nunca ou quase nunca'],['as_vezes','Às vezes'],['freq','Frequentemente']])}
    <div class="tcle"><b>Termo de participação</b> <span style="color:var(--muted)">(texto provisório, será substituído pelo TCLE aprovado no CEP)</span>
-    <p>Este jogo faz parte de uma pesquisa sobre aprendizagem baseada em jogos no ensino de logística. Sua participação é voluntária, não vale nota e você pode desistir a qualquer momento, sem prejuízo. Seus resultados serão analisados de forma agregada e seu nome não aparecerá em nenhuma publicação.</p></div>
+    <p>Este jogo faz parte de uma pesquisa sobre aprendizagem baseada em jogos no ensino de logística, com adultos que não são da área. Você vai responder algumas perguntas antes e depois de jogar. A participação é voluntária, você pode parar a qualquer momento sem nenhum prejuízo, e seus dados serão analisados de forma agregada, sem que seu nome apareça em nenhuma publicação. Só podem participar maiores de 18 anos.</p></div>
    <label class="chk"><input type="checkbox" id="lOk"> Li e concordo em participar.</label>
-   <div class="btns"><button class="b y" id="lGo" disabled>Entrar no armazém</button></div>
+   <div class="btns"><button class="b y" id="lGo" disabled>Participar e entrar no armazém</button><button class="b" id="lPlay">Quero só jogar, sem participar</button></div>
    <p id="lErr" style="color:var(--red);min-height:1.2em"></p>`);
-  const chk=()=>{$('lGo').disabled=!($('lOk').checked&&$('lName').value.trim().length>=3&&$('lClass').value.trim().length>=2&&(!API||$('lRoom').value.trim().length>=2));};
-  ['lName','lClass'].concat(API?['lRoom']:[]).forEach(i=>$(i).addEventListener('input',chk));$('lOk').addEventListener('change',chk);
-  $('lGo').onclick=()=>{const n=$('lName').value.trim().replace(/\s+/g,' ');
+  const ids=['lName','lAge','lEsc','lArea','lLog','lGame'];
+  const chk=()=>{$('lGo').disabled=!($('lOk').checked&&ids.every(i=>$(i).value.trim()!==''));};
+  ids.forEach(i=>{$(i).addEventListener('input',chk);$(i).addEventListener('change',chk);});$('lOk').addEventListener('change',chk);
+  $('lPlay').onclick=()=>{S.research=false;S.player={name:'Visitante',sid:newSid(),sala:''};$('sPlayer').textContent='Visitante';closeModal();intro();};
+  $('lGo').onclick=()=>{
+    const n=$('lName').value.trim().replace(/\s+/g,' ');const age=parseInt($('lAge').value,10);
     if(n.split(' ').length<2){$('lErr').textContent='Digite nome e sobrenome.';return;}
-    S.player={name:n,turma:$('lClass').value.trim(),sala:API?$('lRoom').value.trim().toUpperCase():'',sid:newSid()};
+    if(!(age>=0&&age<=120)){$('lErr').textContent='Confira a idade.';return;}
+    if(age<18){openModal(`<span class="tag">OBRIGADO</span><h2>Pesquisa só para maiores de 18 anos</h2><p>Obrigado pelo interesse! Como a pesquisa é só com adultos, nenhum dado seu foi registrado. Você pode jogar normalmente, sem participar.</p><div class="btns"><button class="b y" id="mPlay">Jogar sem participar</button></div>`);
+      $('mPlay').onclick=()=>{S.research=false;S.player={name:'Visitante',sid:newSid(),sala:''};$('sPlayer').textContent='Visitante';closeModal();intro();};return;}
+    const log=$('lLog').value;
+    S.research=true;
+    S.player={name:n,sid:newSid(),sala:getSala()||'ONLINE',idade:age,escolaridade:$('lEsc').value,area:$('lArea').value.trim(),
+      logistica:log,jogos:$('lGame').value,publico:log==='nao'?'alvo':'fora'};
     $('sPlayer').textContent=n.split(' ')[0];closeModal();
-    if(API){apiPost({tipo:'entrada',sala:S.player.sala,nome:n,turma:S.player.turma,sid:S.player.sid});waitingRoom();}else intro();};
+    const pl=S.player;
+    if(API)apiPost({tipo:'entrada',versao:2,sala:pl.sala,nome:pl.name,sid:pl.sid,idade:pl.idade,escolaridade:pl.escolaridade,area:pl.area,logistica:pl.logistica,jogos:pl.jogos,publico:pl.publico});
+    runQuiz('pre',()=>{(API&&getSala())?waitingRoom():intro();});
+  };
   setTimeout(()=>$('lName').focus(),50);
 }
 function waitingRoom(){

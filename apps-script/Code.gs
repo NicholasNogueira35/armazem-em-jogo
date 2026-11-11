@@ -1,3 +1,5 @@
+/** @OnlyCurrentDoc */
+
 /**
  * ARMAZÉM EM JOGO: receptor de dados (Google Apps Script)
  *

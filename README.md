@@ -2,7 +2,7 @@
 
 Jogo educacional que simula o recebimento de um armazém (assistente, conferente, analista de estoque e operador de armazenagem), usado como instrumento de pesquisa com **adultos leigos em logística**.
 
-Fluxo do participante: **sala de entrada** (perfil + termo) → **pré-teste** (7 perguntas) → **jogo** (3 caminhões) → **pós-teste** (as mesmas 7 perguntas) → **2 perguntas abertas** → resultado. Tudo é enviado automaticamente para uma planilha Google.
+Fluxo do participante: **sala de entrada** (perfil + termo) → **pré-teste** (7 perguntas) → **jogo** (3 caminhões) → **pós-teste** (as mesmas 7 perguntas) → **MEEGA+** (33 afirmações) → **5 perguntas abertas** → resultado. Tudo é enviado automaticamente para uma planilha Google.
 
 ## Arquivos
 
@@ -68,6 +68,17 @@ As mesmas 7 perguntas antes e depois do jogo, sempre com a opção **"Não sei"*
 | q5 | retenção | Destino do palete com avaria |
 | q6 | transferência | Validade abaixo do mínimo do contrato (não aparece no jogo) |
 | q7 | transferência | Lacre violado com conteúdo aparentemente intacto (não aparece no jogo) |
+
+## MEEGA+
+
+Questionário do aluno do MEEGA+ (Petri, Gresse von Wangenheim e Borgatto, 2019), versão em português de 2018, kit Creative Commons disponível em https://gqs.ufsc.br/?p=307. Escala de 5 pontos gravada como 1 (Discordo totalmente) a 5 (Concordo totalmente), colunas `m_u1` a `m_u9` (usabilidade), `m_e01` a `m_e19` (experiência do jogador) e `m_a1` a `m_a5` (objetivos de aprendizagem).
+
+**Adaptações (declarar no artigo):**
+- Omitidos os 3 itens de interação social ("Eu pude interagir com outras pessoas durante o jogo", "O jogo promove momentos de cooperação e/ou competição entre os jogadores", "Eu me senti bem interagindo com outras pessoas durante o jogo"), porque o jogo é individual e online.
+- Nos itens `m_e15`, `m_e16`, `m_e18` e `m_e19`, "disciplina" foi trocado por "o tema do recebimento de mercadorias em logística" (e, no `m_e19`, "outras atividades da disciplina" por "outras formas de aprender sobre o assunto"), porque os participantes não estão cursando uma disciplina.
+- Itens de objetivo de aprendizagem (`m_a1` a `m_a5`) criados no modelo do instrumento: "O jogo contribuiu para compreender..." o que faz cada uma das quatro funções e por que pular etapas de conferência gera problemas.
+- Dados demográficos: frequência de jogos digitais e não-digitais na escala original; instituição, curso, disciplina e sexo não são coletados.
+- As 3 perguntas abertas do MEEGA+ vão para `meega_gostou`, `meega_melhorar` e `meega_comentario`.
 
 ## O que fica registrado
 

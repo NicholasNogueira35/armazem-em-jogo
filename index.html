@@ -101,6 +101,10 @@
   .big .n{font-family:'Press Start 2P',monospace;font-size:18px;color:var(--yellow);margin-top:6px}
 .fld{width:100%;font-family:'VT323',monospace;font-size:22px;padding:8px 10px;background:#0f1525;color:var(--ink);border:3px solid #33426a}
   .fld{display:block}
+  .lkopts{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:6px}
+  .lkopts label{flex-direction:column;align-items:center;text-align:center;font-size:16px;line-height:1.1;background:#18213a;border:2px solid #2a3654;padding:6px 4px;margin:0}
+  .lkopts label:has(input:checked){border-color:var(--yellow);background:#2f2a10}
+  @media (max-width:620px){.lkopts{grid-template-columns:1fr}.lkopts label{flex-direction:row;text-align:left}}
   select.fld{font-size:20px}
   textarea.fld{resize:vertical}
   .fld:focus{outline:none;border-color:var(--yellow)}
@@ -507,18 +511,82 @@ function runQuiz(fase,next){
     S.quiz[fase]={ans,total:sc(),ret:sc('retencao'),transf:sc('transferencia'),ns:Object.values(ans).filter(v=>v==='ns').length,tempo_s:Math.round((performance.now()-t0)/1000)};
     closeModal();next();};
 }
+/* ---------- MEEGA+ (Petri, Gresse von Wangenheim e Borgatto, 2019), questionário do aluno, versão em português 2018 ----------
+   Itens marcados com adaptado:true tiveram "disciplina" substituído, porque os participantes não estão cursando uma disciplina.
+   Os 3 itens de interação social foram omitidos: o jogo é individual e online. Itens de objetivo de aprendizagem (a1 a a5)
+   seguem o modelo "O jogo contribuiu para <verbo> <objetivo>". */
+const LIKERT=['Discordo totalmente','Discordo','Nem discordo, nem concordo','Concordo','Concordo totalmente'];
+const MEEGA=[
+ {dim:'Usabilidade',itens:[
+  ['m_u1','O design do jogo é atraente (tabuleiro, cartas, interfaces, gráficos, etc.).'],
+  ['m_u2','Os textos, cores e fontes combinam e são consistentes.'],
+  ['m_u3','Eu precisei aprender poucas coisas para poder começar a jogar o jogo.'],
+  ['m_u4','Aprender a jogar este jogo foi fácil para mim.'],
+  ['m_u5','Eu acho que a maioria das pessoas aprenderiam a jogar este jogo rapidamente.'],
+  ['m_u6','Eu considero que o jogo é fácil de jogar.'],
+  ['m_u7','As regras do jogo são claras e compreensíveis.'],
+  ['m_u8','As fontes (tamanho e estilo) utilizadas no jogo são legíveis.'],
+  ['m_u9','As cores utilizadas no jogo são compreensíveis.']]},
+ {dim:'Experiência do jogador',itens:[
+  ['m_e01','A organização do conteúdo me ajudou a estar confiante de que eu iria aprender com este jogo.'],
+  ['m_e02','Este jogo é adequadamente desafiador para mim.'],
+  ['m_e03','O jogo oferece novos desafios (oferece novos obstáculos, situações ou variações) com um ritmo adequado.'],
+  ['m_e04','O jogo não se torna monótono nas suas tarefas (repetitivo ou com tarefas chatas).'],
+  ['m_e05','Completar as tarefas do jogo me deu um sentimento de realização.'],
+  ['m_e06','É devido ao meu esforço pessoal que eu consigo avançar no jogo.'],
+  ['m_e07','Me sinto satisfeito com as coisas que aprendi no jogo.'],
+  ['m_e08','Eu recomendaria este jogo para meus colegas.'],
+  ['m_e09','Eu me diverti com o jogo.'],
+  ['m_e10','Aconteceu alguma situação durante o jogo (elementos do jogo, competição, etc.) que me fez sorrir.'],
+  ['m_e11','Houve algo interessante no início do jogo que capturou minha atenção.'],
+  ['m_e12','Eu estava tão envolvido no jogo que eu perdi a noção do tempo.'],
+  ['m_e13','Eu esqueci sobre o ambiente ao meu redor enquanto jogava este jogo.'],
+  ['m_e14','O conteúdo do jogo é relevante para os meus interesses.'],
+  ['m_e15','É claro para mim como o conteúdo do jogo está relacionado com o tema do recebimento de mercadorias em logística.',true],
+  ['m_e16','O jogo é um método de ensino adequado para o tema do recebimento de mercadorias em logística.',true],
+  ['m_e17','Eu prefiro aprender com este jogo do que de outra forma (outro método de ensino).'],
+  ['m_e18','O jogo contribuiu para a minha aprendizagem sobre o recebimento de mercadorias em logística.',true],
+  ['m_e19','O jogo foi eficiente para minha aprendizagem, em comparação com outras formas de aprender sobre o assunto (textos, vídeos, aulas).',true]]},
+ {dim:'Objetivos de aprendizagem',itens:[
+  ['m_a1','O jogo contribuiu para compreender o que faz o assistente de recebimento.'],
+  ['m_a2','O jogo contribuiu para compreender o que faz o conferente.'],
+  ['m_a3','O jogo contribuiu para compreender o que faz o analista de estoque.'],
+  ['m_a4','O jogo contribuiu para compreender o que faz o operador de armazenagem.'],
+  ['m_a5','O jogo contribuiu para compreender por que pular etapas de conferência gera problemas na operação.']]}
+];
+function runMeega(next){
+  const t0=performance.now();
+  openModal(`<span class="tag">AVALIAÇÃO DO JOGO</span><h2>O que você achou do jogo?</h2>
+   <p>Marque o quanto você concorda ou discorda de cada afirmação. Não existe resposta certa: queremos a sua opinião sincera, inclusive as críticas.</p>
+   ${MEEGA.map(b=>`<h3>${b.dim}</h3>${b.itens.map(([id,txt])=>`<div class="issue lk"><b>${txt}</b><div class="lkopts">${LIKERT.map((l,i)=>`<label><input type="radio" name="${id}" value="${i+1}"> ${l}</label>`).join('')}</div></div>`).join('')}`).join('')}
+   <div class="btns"><button class="b y" id="mGo">Continuar</button></div>
+   <p id="mErr" style="color:var(--red);min-height:1.2em"></p>`);
+  $('mGo').onclick=()=>{
+    const ans={};let falta=0;
+    MEEGA.forEach(b=>b.itens.forEach(([id])=>{const el=document.querySelector(`input[name="${id}"]:checked`);if(el)ans[id]=+el.value;else falta++;}));
+    if(falta){$('mErr').textContent=`Faltam ${falta} afirmação(ões) para marcar.`;return;}
+    ans.m_tempo_s=Math.round((performance.now()-t0)/1000);
+    S.meega=ans;closeModal();next();};
+}
+
 function openQuestions(next){
-  openModal(`<span class="tag">SUA OPINIÃO</span><h2>Duas perguntas abertas</h2>
+  openModal(`<span class="tag">SUA OPINIÃO</span><h2>Para terminar, algumas perguntas abertas</h2>
    <p>Escreva com suas palavras. Não existe resposta certa. Se preferir, pode deixar em branco.</p>
    <h3>1. O que você entendeu sobre o trabalho num armazém que não sabia antes?</h3>
    <textarea id="ab1" class="fld" rows="4" maxlength="2000"></textarea>
    <h3>2. Como você lidou com a pressão do supervisor? O que pensou quando ele ofereceu o atalho?</h3>
    <textarea id="ab2" class="fld" rows="4" maxlength="2000"></textarea>
+   <h3>3. O que você mais gostou no jogo?</h3>
+   <textarea id="ab3" class="fld" rows="3" maxlength="2000"></textarea>
+   <h3>4. O que poderia ser melhorado no jogo?</h3>
+   <textarea id="ab4" class="fld" rows="3" maxlength="2000"></textarea>
+   <h3>5. Gostaria de fazer mais algum comentário?</h3>
+   <textarea id="ab5" class="fld" rows="3" maxlength="2000"></textarea>
    <div class="btns"><button class="b y" id="abGo">Ver meu resultado</button></div>`);
-  $('abGo').onclick=()=>{S.abertas=[$('ab1').value.trim(),$('ab2').value.trim()];closeModal();next();};
+  $('abGo').onclick=()=>{S.abertas=['ab1','ab2','ab3','ab4','ab5'].map(i=>$(i).value.trim());closeModal();next();};
 }
 function endOfGame(){
-  if(S.research)runQuiz('pos',()=>openQuestions(finale));else finale();
+  if(S.research)runQuiz('pos',()=>runMeega(()=>openQuestions(finale)));else finale();
 }
 
 function finale(){
@@ -560,6 +628,7 @@ function finale(){
       pre_total:qp.total,pre_retencao:qp.ret,pre_transferencia:qp.transf,pre_nao_sei:qp.ns,pre_tempo_s:qp.tempo_s,
       pos_total:qo.total,pos_retencao:qo.ret,pos_transferencia:qo.transf,pos_nao_sei:qo.ns,pos_tempo_s:qo.tempo_s,
       pre_respostas:qp.ans,pos_respostas:qo.ans,aberta_1:(S.abertas||[])[0]||'',aberta_2:(S.abertas||[])[1]||'',
+      extras:Object.assign({jogos_nao_digitais:pl.jogos_nd,meega_gostou:(S.abertas||[])[2]||'',meega_melhorar:(S.abertas||[])[3]||'',meega_comentario:(S.abertas||[])[4]||''},S.meega||{}),
       decisoes:S.log.map(l=>({caminhao:l.truck+1,funcao:l.role,acerto:l.ok,texto:l.text}))};
     const pend=store.get('armazem_pendentes')||[];pend.push(res);store.set('armazem_pendentes',pend);
     $('sendSt').textContent='Enviando suas respostas...';
@@ -586,14 +655,16 @@ function lobby(){
    <input id="lArea" class="fld" type="text" maxlength="80" placeholder="Ex.: Física, Relações Internacionais, Enfermagem">
    <h3>Você estuda ou já trabalhou com logística?</h3>
    ${sel('lLog',[['nao','Não'],['estuda','Sim, estudo ou estudei logística'],['trabalha','Sim, trabalho ou já trabalhei com logística']])}
-   <h3>Com que frequência você joga videogame (celular, computador ou console)?</h3>
-   ${sel('lGame',[['nunca','Nunca ou quase nunca'],['as_vezes','Às vezes'],['freq','Frequentemente']])}
+   <h3>Com que frequência você costuma jogar jogos digitais?</h3>
+   ${sel('lGame',[['nunca','Nunca: nunca jogo.'],['raramente','Raramente: jogo de tempos em tempos.'],['mensal','Mensalmente: jogo pelo menos uma vez por mês.'],['semanal','Semanalmente: jogo pelo menos uma vez por semana.'],['diario','Diariamente: jogo todos os dias.']])}
+   <h3>Com que frequência você costuma jogar jogos não-digitais (de cartas, tabuleiro, etc.)?</h3>
+   ${sel('lGame2',[['nunca','Nunca: nunca jogo.'],['raramente','Raramente: jogo de tempos em tempos.'],['mensal','Mensalmente: jogo pelo menos uma vez por mês.'],['semanal','Semanalmente: jogo pelo menos uma vez por semana.'],['diario','Diariamente: jogo todos os dias.']])}
    <div class="tcle"><b>Termo de participação</b> <span style="color:var(--muted)">(texto provisório, será substituído pelo TCLE aprovado no CEP)</span>
     <p>Este jogo faz parte de uma pesquisa sobre aprendizagem baseada em jogos no ensino de logística, com adultos que não são da área. Você vai responder algumas perguntas antes e depois de jogar. A participação é voluntária, você pode parar a qualquer momento sem nenhum prejuízo, e seus dados serão analisados de forma agregada, sem que seu nome apareça em nenhuma publicação. Só podem participar maiores de 18 anos.</p></div>
    <label class="chk"><input type="checkbox" id="lOk"> Li e concordo em participar.</label>
    <div class="btns"><button class="b y" id="lGo" disabled>Participar e entrar no armazém</button><button class="b" id="lPlay">Quero só jogar, sem participar</button></div>
    <p id="lErr" style="color:var(--red);min-height:1.2em"></p>`);
-  const ids=['lName','lAge','lEsc','lArea','lLog','lGame'];
+  const ids=['lName','lAge','lEsc','lArea','lLog','lGame','lGame2'];
   const chk=()=>{$('lGo').disabled=!($('lOk').checked&&ids.every(i=>$(i).value.trim()!==''));};
   ids.forEach(i=>{$(i).addEventListener('input',chk);$(i).addEventListener('change',chk);});$('lOk').addEventListener('change',chk);
   $('lPlay').onclick=()=>{S.research=false;S.player={name:'Visitante',sid:newSid(),sala:''};$('sPlayer').textContent='Visitante';closeModal();intro();};
@@ -606,10 +677,10 @@ function lobby(){
     const log=$('lLog').value;
     S.research=true;
     S.player={name:n,sid:newSid(),sala:getSala()||'ONLINE',idade:age,escolaridade:$('lEsc').value,area:$('lArea').value.trim(),
-      logistica:log,jogos:$('lGame').value,publico:log==='nao'?'alvo':'fora'};
+      logistica:log,jogos:$('lGame').value,jogos_nd:$('lGame2').value,publico:log==='nao'?'alvo':'fora'};
     $('sPlayer').textContent=n.split(' ')[0];closeModal();
     const pl=S.player;
-    if(API)apiPost({tipo:'entrada',versao:2,sala:pl.sala,nome:pl.name,sid:pl.sid,idade:pl.idade,escolaridade:pl.escolaridade,area:pl.area,logistica:pl.logistica,jogos:pl.jogos,publico:pl.publico});
+    if(API)apiPost({tipo:'entrada',versao:2,sala:pl.sala,nome:pl.name,sid:pl.sid,idade:pl.idade,escolaridade:pl.escolaridade,area:pl.area,logistica:pl.logistica,jogos:pl.jogos,publico:pl.publico,extras:{jogos_nao_digitais:pl.jogos_nd}});
     runQuiz('pre',()=>{(API&&getSala())?waitingRoom():intro();});
   };
   setTimeout(()=>$('lName').focus(),50);

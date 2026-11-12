@@ -1,7 +1,7 @@
 /** @OnlyCurrentDoc */
 
 /**
- * ARMAZÉM EM JOGO: receptor de dados (Google Apps Script), versão 2
+ * ARMAZÉM EM JOGO: receptor de dados (Google Apps Script), versão 3
  *
  * Como usar (detalhes no README):
  * 1. Na planilha, abra Extensões > Apps Script e cole este arquivo inteiro.
@@ -52,8 +52,25 @@ function aba_(nome, colunas) {
 }
 
 function gravar_(a, obj) {
+  // cria no fim da aba qualquer coluna que ainda não exista
+  const novas = Object.keys(obj).filter(k => a.cab.indexOf(k) === -1);
+  if (novas.length) {
+    a.sh.getRange(1, a.cab.length + 1, 1, novas.length).setValues([novas]).setFontWeight('bold');
+    a.cab = a.cab.concat(novas);
+  }
   const linha = a.cab.map(c => (c in obj ? obj[c] : ''));
   a.sh.appendRow(linha);
+}
+
+// Campos extras enviados pelo jogo (ex.: itens do MEEGA+). Nomes só com letras minúsculas, números e _.
+function extras_(d, o) {
+  const ex = d.extras || {};
+  Object.keys(ex).slice(0, 80).forEach(k => {
+    if (!/^[a-z0-9_]{1,40}$/.test(k) || k in o) return;
+    const v = ex[k];
+    o[k] = typeof v === 'number' ? num_(v) : limpo_(v, 2000);
+  });
+  return o;
 }
 
 // Impede que um texto digitado vire fórmula na planilha
@@ -94,7 +111,7 @@ function doPost(e) {
     const d = JSON.parse(e.postData.contents);
 
     if (d.tipo === 'entrada') {
-      const o = perfil_(d);
+      const o = extras_(d, perfil_(d));
       o.data_hora = new Date();
       gravar_(aba_(ABA_ENTRADAS, COL_ENTRADAS), o);
       return json_({ ok: true });
@@ -131,6 +148,7 @@ function doPost(e) {
         pos_respostas: limpo_(JSON.stringify(d.pos_respostas || {}), 500),
         decisoes_json: JSON.stringify(d.decisoes || []).slice(0, 45000)
       });
+      extras_(d, o);
       gravar_(a, o);
       return json_({ ok: true });
     }
@@ -146,7 +164,7 @@ function doPost(e) {
 // Sala de espera: devolve quem entrou na sala nas últimas horas (nome curto)
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  if (p.acao !== 'sala') return json_({ ok: true, servico: 'Armazém em Jogo', versao: 2 });
+  if (p.acao !== 'sala') return json_({ ok: true, servico: 'Armazém em Jogo', versao: 3 });
 
   const sala = String(p.sala || '').toUpperCase().trim();
   const limite = Date.now() - HORAS_SALA * 3600 * 1000;

@@ -32,6 +32,12 @@
   #cv{width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
   .lab{position:absolute;transform:translate(-50%,-50%);font-family:'Press Start 2P',monospace;font-size:clamp(5px,0.75vw,9px);color:#fff;text-shadow:1px 1px 0 #000,-1px 1px 0 #000,1px -1px 0 #000,-1px -1px 0 #000;pointer-events:none;text-align:center;white-space:nowrap;line-height:1.5}
   .lab small{display:block;font-size:.8em;opacity:.9}
+  #youTag{position:absolute;transform:translate(-50%,-100%);font-family:'Press Start 2P',monospace;font-size:clamp(7px,1vw,11px);background:var(--yellow);color:#1a1300;padding:4px 6px;border:2px solid #1a1300;pointer-events:none;white-space:nowrap;display:none;z-index:2}
+  #youTag:after{content:'';position:absolute;left:50%;bottom:-8px;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--yellow)}
+  #coach{width:min(100%, calc((100vh - 220px) * 22 / 13));min-width:300px;background:#2f2a10;border:3px solid var(--yellow);padding:8px 12px;font-size:clamp(17px,2vw,23px);display:none;text-align:center}
+  #coach.pulse{animation:pulse .9s ease-out}
+  @keyframes pulse{0%{background:#7a6512}100%{background:#2f2a10}}
+  #coach b{color:var(--yellow)}
   #toast{position:absolute;left:50%;bottom:3%;transform:translateX(-50%);max-width:90%;background:rgba(10,14,24,.92);border:2px solid var(--yellow);padding:6px 12px;font-size:clamp(15px,1.8vw,21px);opacity:0;transition:opacity .25s;pointer-events:none;text-align:center}
   #toast.show{opacity:1}
   #sup{position:absolute;left:50%;bottom:17%;transform:translateX(-50%);max-width:88%;background:#fff;color:#1b1b1b;border:3px solid var(--red);padding:6px 12px;font-size:clamp(15px,1.8vw,22px);opacity:0;transition:opacity .25s;pointer-events:none}
@@ -129,11 +135,13 @@
       <div class="row"><span class="lbl">Acertos</span><span id="sScore">0</span></div>
     </div>
   </div>
+  <div id="coach"></div>
   <div id="stage">
     <canvas id="cv"></canvas>
     <div id="labels"></div>
     <div id="sup"><b>SUPERVISOR</b><span id="supTxt"></span></div>
     <div id="toast"></div>
+    <div id="youTag"></div>
   </div>
   <div id="pad">
     <div class="dpad">
@@ -556,17 +564,27 @@ const MEEGA=[
 ];
 function runMeega(next){
   const t0=performance.now();
-  openModal(`<span class="tag">AVALIAÇÃO DO JOGO</span><h2>O que você achou do jogo?</h2>
-   <p>Marque o quanto você concorda ou discorda de cada afirmação. Não existe resposta certa: queremos a sua opinião sincera, inclusive as críticas.</p>
-   ${MEEGA.map(b=>`<h3>${b.dim}</h3>${b.itens.map(([id,txt])=>`<div class="issue lk"><b>${txt}</b><div class="lkopts">${LIKERT.map((l,i)=>`<label><input type="radio" name="${id}" value="${i+1}"> ${l}</label>`).join('')}</div></div>`).join('')}`).join('')}
-   <div class="btns"><button class="b y" id="mGo">Continuar</button></div>
-   <p id="mErr" style="color:var(--red);min-height:1.2em"></p>`);
-  $('mGo').onclick=()=>{
-    const ans={};let falta=0;
-    MEEGA.forEach(b=>b.itens.forEach(([id])=>{const el=document.querySelector(`input[name="${id}"]:checked`);if(el)ans[id]=+el.value;else falta++;}));
-    if(falta){$('mErr').textContent=`Faltam ${falta} afirmação(ões) para marcar.`;return;}
-    ans.m_tempo_s=Math.round((performance.now()-t0)/1000);
-    S.meega=ans;closeModal();next();};
+  const ex=MEEGA[1].itens;
+  const pages=[{dim:MEEGA[0].dim,itens:MEEGA[0].itens},{dim:MEEGA[1].dim,itens:ex.slice(0,10)},{dim:MEEGA[1].dim,itens:ex.slice(10)},{dim:MEEGA[2].dim,itens:MEEGA[2].itens}];
+  const ans={};
+  const show=pi=>{
+    const pg=pages[pi],last=pi===pages.length-1;
+    openModal(`<span class="tag">AVALIAÇÃO DO JOGO · PARTE ${pi+1} DE ${pages.length}</span><h2>O que você achou do jogo?</h2>
+     <div class="track" style="margin:6px 0 10px"><div class="fill" style="width:${(pi+1)/pages.length*100}%;background:var(--yellow)"></div></div>
+     ${pi===0?'<p>Marque o quanto você concorda ou discorda de cada afirmação. Não existe resposta certa: queremos a sua opinião sincera, inclusive as críticas.</p>':''}
+     <h3>${pg.dim}</h3>${pg.itens.map(([id,txt])=>`<div class="issue lk"><b>${txt}</b><div class="lkopts">${LIKERT.map((l,i)=>`<label><input type="radio" name="${id}" value="${i+1}"${ans[id]===i+1?' checked':''}> ${l}</label>`).join('')}</div></div>`).join('')}
+     <div class="btns">${pi>0?'<button class="b" id="mBack">Voltar</button>':''}<button class="b y" id="mGo">${last?'Continuar':'Próxima parte'}</button></div>
+     <p id="mErr" style="color:var(--red);min-height:1.2em"></p>`);
+    const grab=()=>{let falta=0;pg.itens.forEach(([id])=>{const el=document.querySelector(`input[name="${id}"]:checked`);if(el)ans[id]=+el.value;else falta++;});return falta;};
+    if(pi>0)$('mBack').onclick=()=>{grab();show(pi-1);};
+    $('mGo').onclick=()=>{
+      const falta=grab();
+      if(falta){$('mErr').textContent=`Faltam ${falta} afirmação(ões) para marcar nesta parte.`;return;}
+      if(!last)return show(pi+1);
+      ans.m_tempo_s=Math.round((performance.now()-t0)/1000);
+      S.meega=ans;closeModal();next();};
+  };
+  show(0);
 }
 
 function openQuestions(next){
@@ -651,10 +669,10 @@ function lobby(){
    <input id="lAge" class="fld" type="number" min="0" max="120" inputmode="numeric" placeholder="Em anos" style="max-width:160px">
    <h3>Escolaridade</h3>
    ${sel('lEsc',[['medio','Ensino médio'],['tecnico','Curso técnico'],['sup_inc','Ensino superior incompleto (cursando)'],['sup','Ensino superior completo'],['pos','Pós-graduação']])}
-   <h3>Área de formação ou de trabalho</h3>
-   <input id="lArea" class="fld" type="text" maxlength="80" placeholder="Ex.: Física, Relações Internacionais, Enfermagem">
-   <h3>Você estuda ou já trabalhou com logística?</h3>
-   ${sel('lLog',[['nao','Não'],['estuda','Sim, estudo ou estudei logística'],['trabalha','Sim, trabalho ou já trabalhei com logística']])}
+   <h3>Área de formação, curso ou ocupação</h3>
+   <input id="lArea" class="fld" type="text" maxlength="80" placeholder="Ex.: Física, Enfermagem, estudante do ensino médio, vendedor">
+   <h3>Você tem formação ou experiência em logística?</h3>
+   ${sel('lLog',[['nao','Não'],['disciplina','Só estudei logística como uma disciplina dentro de outro curso (ex.: Administração)'],['estuda','Sim, faço ou fiz um curso de logística (técnico, graduação ou pós)'],['trabalha','Sim, trabalho ou já trabalhei com logística']])}
    <h3>Com que frequência você costuma jogar jogos digitais?</h3>
    ${sel('lGame',[['nunca','Nunca: nunca jogo.'],['raramente','Raramente: jogo de tempos em tempos.'],['mensal','Mensalmente: jogo pelo menos uma vez por mês.'],['semanal','Semanalmente: jogo pelo menos uma vez por semana.'],['diario','Diariamente: jogo todos os dias.']])}
    <h3>Com que frequência você costuma jogar jogos não-digitais (de cartas, tabuleiro, etc.)?</h3>
@@ -677,7 +695,7 @@ function lobby(){
     const log=$('lLog').value;
     S.research=true;
     S.player={name:n,sid:newSid(),sala:getSala()||'ONLINE',idade:age,escolaridade:$('lEsc').value,area:$('lArea').value.trim(),
-      logistica:log,jogos:$('lGame').value,jogos_nd:$('lGame2').value,publico:log==='nao'?'alvo':'fora'};
+      logistica:log,jogos:$('lGame').value,jogos_nd:$('lGame2').value,publico:log==='nao'?'alvo':(log==='disciplina'?'parcial':'fora')};
     $('sPlayer').textContent=n.split(' ')[0];closeModal();
     const pl=S.player;
     if(API)apiPost({tipo:'entrada',versao:2,sala:pl.sala,nome:pl.name,sid:pl.sid,idade:pl.idade,escolaridade:pl.escolaridade,area:pl.area,logistica:pl.logistica,jogos:pl.jogos,publico:pl.publico,extras:{jogos_nao_digitais:pl.jogos_nd}});
@@ -882,6 +900,40 @@ function drawArrow(t){
   px(x,y,8,2,'#ffcc33');px(x+1,y+2,6,2,'#ffcc33');px(x+2,y+4,4,2,'#ffcc33');px(x+3,y+6,2,1,'#ffcc33');
   px(x,y-1,8,1,'#1a1300');
 }
+const COARSE=(()=>{try{return matchMedia('(pointer:coarse)').matches;}catch(e){return false;}})();
+const KEY=COARSE?'toque em AÇÃO':'aperte <b>E</b>';
+function coachText(){
+  if(S.phase!=='play'||S.modal||S.ti!==0)return '';
+  if(S.truckState==='arriving')return '<b>Você é o personagem de colete laranja.</b> O primeiro caminhão está chegando na doca.';
+  if(S.step==='docs')return `Primeiro passo: siga a <b>seta amarela</b> até a mesa <b>NF</b>, no escritório. Encoste nela e ${KEY}.`;
+  if(S.step==='conf')return S.offered||S.pallets.some(p=>p.state==='conferido')?`Confira os outros paletes: vá até cada um com <b>!</b> e ${KEY}.`:`Os paletes chegaram na doca. Vá até um palete com <b>!</b> e ${KEY} para conferir.`;
+  if(S.step==='wms')return `Agora vá até o computador <b>WMS</b>, no escritório, e ${KEY}.`;
+  if(S.step==='arm')return S.carrying?`Leve o palete até a <b>estante da zona certa</b> (ou à quarentena, se tiver avaria). Encoste e ${KEY} para guardar.`:`Encoste num palete e ${KEY} para pegar.`;
+  return '';
+}
+function nearTarget(){
+  const t=target();if(!t||S.modal||S.phase!=='play')return false;
+  const d=Math.abs(t[0]-P.x)+Math.abs(t[1]-P.y);
+  if(S.step==='arm'&&S.carrying)return false;
+  return d<=1;
+}
+function nearDrop(){
+  if(!S.carrying||S.modal)return false;
+  const d=DIRS[P.dir],fx=P.x+d[0],fy=P.y+d[1];
+  return 'ABC'.includes(tileAt(fx,fy))&&tileAt(fx,fy).length===1||tileAt(P.x,P.y)==='Q';
+}
+let lastCoach='';
+function updateHelp(){
+  const c=coachText();
+  if(c!==lastCoach){lastCoach=c;const el=$('coach');el.innerHTML=c;el.style.display=c?'block':'none';el.classList.remove('pulse');void el.offsetWidth;if(c)el.classList.add('pulse');}
+  const tag=$('youTag');let txt='';
+  if(S.phase==='play'&&!S.modal&&!P.moving){
+    if(nearTarget()||nearDrop())txt=COARSE?'Toque em AÇÃO':'Aperte E';
+    else if(S.ti===0)txt='VOCÊ';
+  }
+  if(txt){tag.textContent=txt;tag.style.display='block';tag.style.left=((P.px+8)/W*100)+'%';tag.style.top=((P.py-4)/H*100)+'%';}
+  else tag.style.display='none';
+}
 function draw(){
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)drawTile(c,r);
   // quarentena
@@ -892,6 +944,7 @@ function draw(){
   const ents=[[P,'p'],[SUP,'s']].sort((a,b)=>a[0].py-b[0].py);
   if(S.phase!=='intro'||true)ents.forEach(([e,k])=>drawPerson(e,k));
   const t=target();if(t)drawArrow(t);
+  updateHelp();
 }
 
 let last=performance.now();

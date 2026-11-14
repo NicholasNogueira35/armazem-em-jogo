@@ -82,7 +82,7 @@ Questionário do aluno do MEEGA+ (Petri, Gresse von Wangenheim e Borgatto, 2019)
 
 ## O que fica registrado
 
-**Entradas:** data e hora, sala, nome, `sid`, idade, escolaridade, área, se estuda/trabalha com logística, frequência com que joga e `publico` (`alvo` = leigo em logística; `fora` = já estudou ou trabalhou com logística).
+**Entradas:** data e hora, sala, nome, `sid`, idade, escolaridade, área, se estuda/trabalha com logística, frequência com que joga e `publico` (`alvo` = sem formação nem experiência em logística; `parcial` = só teve logística como disciplina de outro curso; `fora` = fez curso de logística ou trabalha/trabalhou na área).
 
 **Resultados:** perfil; pré e pós-teste (total, retenção, transferência, quantos "não sei", tempo); acertos no jogo e por função; tempo total e por caminhão; atalhos aceitos; respostas abertas; e, em `decisoes_json`, cada decisão com o feedback recebido.
 
